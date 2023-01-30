@@ -129,6 +129,7 @@ import static com.sap.piper.Prerequisites.checkScript
  */
 @GenerateStageDocumentation(defaultStageName = 'Init')
 void call(Map parameters = [:]) {
+    println("Init started TEST")
     def script = checkScript(this, parameters) ?: this
     def utils = parameters.juStabUtils ?: new Utils()
 
