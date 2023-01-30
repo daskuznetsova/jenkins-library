@@ -550,6 +550,7 @@ steps:
   piperPipelineStageInit:
     stepMappings:
       checkmarx: 'checkmarxExecuteScan'
+      codeql: 'codeqlExecuteScan'
       fortify: 'fortifyExecuteScan'
       karma: 'karmaExecuteTests'
       whitesource: 'whitesourceExecuteScan'
