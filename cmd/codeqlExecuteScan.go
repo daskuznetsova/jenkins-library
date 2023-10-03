@@ -154,11 +154,13 @@ func initGitInfo(config *codeqlExecuteScanOptions) RepoInfo {
 
 func getToken(config *codeqlExecuteScanOptions) (bool, string) {
 	if len(config.GithubToken) > 0 {
+		log.Entry().Debugf("got token from config")
 		return true, config.GithubToken
 	}
 
 	envVal, isEnvGithubToken := os.LookupEnv("GITHUB_TOOLS_TOKEN")
 	if isEnvGithubToken {
+		log.Entry().Debugf("got token from GITHUB_TOOLS_TOKEN")
 		return true, envVal
 	}
 
