@@ -157,7 +157,7 @@ func getToken(config *codeqlExecuteScanOptions) (bool, string) {
 		return true, config.GithubToken
 	}
 
-	envVal, isEnvGithubToken := os.LookupEnv("GITHUB_TOKEN")
+	envVal, isEnvGithubToken := os.LookupEnv("GITHUB_TOOLS_TOKEN")
 	if isEnvGithubToken {
 		return true, envVal
 	}
