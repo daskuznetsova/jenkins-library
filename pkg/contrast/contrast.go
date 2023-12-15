@@ -2,14 +2,15 @@ package contrast
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 
-	piperhttp "github.com/SAP/jenkins-library/pkg/http"
 	"github.com/SAP/jenkins-library/pkg/log"
 )
 
 type Contrast interface {
-	GetVulnerabilities() error
+	GetVulnerabilities(applicationId string) error
 }
 
 type ContrastInstance struct {
@@ -37,35 +38,86 @@ type Vulnerability struct {
 	RuleName      string `json:"ruleName"`
 }
 
-func (contrast *ContrastInstance) GetVulnerabilities() error {
-	client := piperhttp.Client{}
-	header := make(map[string][]string)
-	header["API-Key"] = []string{contrast.apiKey}
-	header["Authorization"] = []string{contrast.auth}
+type Pageable struct {
+	PageNumber int  `json:"pageNumber"`
+	PageSize   int  `json:"pageSize"`
+	Paged      bool `json:"paged"`
+	Unpaged    bool `json:"unpaged"`
+	Offset     int  `json:"offset"`
+}
 
-	response, err := client.SendRequest("GET", contrast.url, nil, header, nil)
-	if err != nil {
-		return err
-	}
-	if response == nil {
-		log.Entry().Warn("response is empty")
-		return nil
-	}
-	defer response.Body.Close()
+type ContrastResponse struct {
+	Content       []Vulnerability `json:"content"`
+	Pageable      Pageable        `json:"pageable"`
+	Last          bool            `json:"last"`
+	TotalPages    int             `json:"totalPages"`
+	TotalElements int             `json:"totalElements"`
+	Empty         bool            `json:"empty"`
+}
 
-	bodyText, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	vulns := []Vulnerability{}
-	err = json.Unmarshal(bodyText, &vulns)
-	if err != nil {
-		return err
+func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) (*ContrastFindings, error) {
+
+	pageSize := 100
+	pageNumber := 0
+	audited := 0
+	totalAlerts := 0
+
+	var vulnerabilities []Vulnerability
+	for {
+		client := http.Client{}
+		req, err := http.NewRequest("GET", contrast.url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Add("API-Key", contrast.apiKey)
+		req.Header.Add("Authorization", contrast.auth)
+		q := req.URL.Query()
+		q.Add("page", fmt.Sprintf("%d", pageNumber))
+		q.Add("size", fmt.Sprintf("%d", pageSize))
+		req.URL.RawQuery = q.Encode()
+
+		response, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if response == nil {
+			log.Entry().Warn("response is empty")
+			break
+		}
+		defer response.Body.Close()
+
+		bodyText, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp := ContrastResponse{}
+		err = json.Unmarshal(bodyText, &resp)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Entry().Infof("page %d from %d", resp.Pageable.PageNumber+1, resp.TotalPages)
+
+		for _, vuln := range resp.Content {
+			if vuln.ApplicationId == applicationId {
+				vulnerabilities = append(vulnerabilities, vuln)
+				if vuln.Status == "Fixed" || vuln.Status == "Not a problem" {
+					audited += 1
+				}
+				totalAlerts += 1
+			}
+		}
+		if resp.Last {
+			break
+		}
+		pageNumber++
 	}
 
-	for _, v := range vulns {
-		log.Entry().Info(v)
+	auditAll := &ContrastFindings{
+		ClassificationName: "Audit All",
+		Total:              totalAlerts,
+		Audited:            audited,
 	}
 
-	return nil
+	return auditAll, nil
 }
