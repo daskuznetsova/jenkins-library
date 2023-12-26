@@ -6,11 +6,12 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/SAP/jenkins-library/pkg/log"
+	"github.com/pkg/errors"
 )
 
 type Contrast interface {
 	GetVulnerabilities(applicationId string) error
+	GetApplication(applicationId string) (ApplicationInfo, error)
 }
 
 type ContrastInstance struct {
@@ -46,7 +47,7 @@ type Pageable struct {
 	Offset     int  `json:"offset"`
 }
 
-type ContrastResponse struct {
+type VulnerabilitiesResponse struct {
 	Content       []Vulnerability `json:"content"`
 	Pageable      Pageable        `json:"pageable"`
 	Last          bool            `json:"last"`
@@ -55,8 +56,21 @@ type ContrastResponse struct {
 	Empty         bool            `json:"empty"`
 }
 
-func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) (*ContrastFindings, error) {
+type ApplicationResponse struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Path        string `json:"path"`
+	Language    string `json:"language"`
+	Importance  string `json:"importance"`
+}
 
+const (
+	StatusFixed       = "Fixed"
+	StatusNotAProblem = "Not a problem"
+)
+
+func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) ([]ContrastFindings, error) {
 	pageSize := 100
 	pageNumber := 0
 	audited := 0
@@ -64,60 +78,103 @@ func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) (*Con
 
 	var vulnerabilities []Vulnerability
 	for {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", contrast.url, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
+		params := map[string]string{
+			"page": fmt.Sprintf("%d", pageNumber),
+			"size": fmt.Sprintf("%d", pageSize),
 		}
-		req.Header.Add("API-Key", contrast.apiKey)
-		req.Header.Add("Authorization", contrast.auth)
-		q := req.URL.Query()
-		q.Add("page", fmt.Sprintf("%d", pageNumber))
-		q.Add("size", fmt.Sprintf("%d", pageSize))
-		req.URL.RawQuery = q.Encode()
-
-		response, err := client.Do(req)
+		response, err := doRequest(contrast.url+"/vulnerabilities", contrast.apiKey, contrast.auth, params)
 		if err != nil {
 			return nil, err
 		}
-		if response == nil {
-			log.Entry().Warn("response is empty")
-			break
-		}
-		defer response.Body.Close()
+		defer response.Close()
 
-		bodyText, err := io.ReadAll(response.Body)
-		if err != nil {
-			return nil, err
-		}
-		resp := ContrastResponse{}
-		err = json.Unmarshal(bodyText, &resp)
+		data, err := io.ReadAll(response)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Entry().Infof("page %d from %d", resp.Pageable.PageNumber+1, resp.TotalPages)
+		var vulnsResponse VulnerabilitiesResponse
+		err = json.Unmarshal(data, &vulnsResponse)
+		if err != nil {
+			return nil, err
+		}
 
-		for _, vuln := range resp.Content {
+		for _, vuln := range vulnsResponse.Content {
 			if vuln.ApplicationId == applicationId {
 				vulnerabilities = append(vulnerabilities, vuln)
-				if vuln.Status == "Fixed" || vuln.Status == "Not a problem" {
+				if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
 					audited += 1
 				}
 				totalAlerts += 1
 			}
 		}
-		if resp.Last {
+		if vulnsResponse.Last {
 			break
 		}
 		pageNumber++
 	}
 
-	auditAll := &ContrastFindings{
+	auditAll := ContrastFindings{
 		ClassificationName: "Audit All",
 		Total:              totalAlerts,
 		Audited:            audited,
 	}
 
-	return auditAll, nil
+	return []ContrastFindings{auditAll}, nil
+}
+
+func (contrast *ContrastInstance) GetApplication(server, organization, applicationId string) (*ApplicationInfo, error) {
+	var appResponse ApplicationResponse
+
+	url := fmt.Sprintf("%s/applications/%s", contrast.url, applicationId)
+
+	response, err := doRequest(url, contrast.apiKey, contrast.auth, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Close()
+
+	data, err := io.ReadAll(response)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, &appResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ApplicationInfo{
+		ServerUrl:      server,
+		OrganizationId: organization,
+		Id:             applicationId,
+		Name:           appResponse.Name,
+		DisplayName:    appResponse.DisplayName,
+		Path:           appResponse.Path,
+		ApplicationUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
+			server, organization, applicationId),
+	}, nil
+}
+
+func doRequest(url, apiKey, auth string, params map[string]string) (io.ReadCloser, error) {
+	client := http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create request")
+	}
+
+	req.Header.Add("API-Key", apiKey)
+	req.Header.Add("Authorization", auth)
+
+	q := req.URL.Query()
+	for param, value := range params {
+		q.Add(param, value)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Body, nil
 }

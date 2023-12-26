@@ -46,33 +46,58 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	var reports []piperutils.Path
 
 	contrastInstance := contrast.NewContrastInstance(getUrl(config), config.UserAPIKey, getAuth(config))
+	appInfo, err := contrastInstance.GetApplication(config.Server, config.OrganizationID, config.ApplicationID)
+	if err != nil {
+		return nil, err
+	}
+
 	findings, err := contrastInstance.GetVulnerabilities(config.ApplicationID)
 	if err != nil {
 		return reports, err
 	}
 
+	contrastAudit := contrast.ContrastAudit{
+		ToolName: "contrast",
+		ApplicationUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
+			config.Server, config.OrganizationID, config.ApplicationID),
+		ApplicationVulnsUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s/vulns",
+			config.Server, config.OrganizationID, config.ApplicationID),
+		ScanResults: findings,
+	}
+	paths, err := contrast.WriteJSONReport(contrastAudit, "./")
+	if err != nil {
+		return reports, err
+	}
+	reports = append(reports, paths...)
+
 	if config.CheckForCompliance {
-		unaudited := findings.Total - findings.Audited
-		if unaudited > config.VulnerabilityThresholdTotal {
-			msg := fmt.Sprintf("Your application %v in organization %v is not compliant. Total unaudited issues are %v which is greater than the VulnerabilityThresholdTotal count %v",
-				config.ApplicationID, config.OrganizationID, unaudited, config.VulnerabilityThresholdTotal)
-			return reports, errors.Errorf(msg)
+		for _, results := range findings {
+			if results.ClassificationName == "Audit All" {
+				unaudited := results.Total - results.Audited
+				if unaudited > config.VulnerabilityThresholdTotal {
+					msg := fmt.Sprintf("Your application %v in organization %v is not compliant. Total unaudited issues are %v which is greater than the VulnerabilityThresholdTotal count %v",
+						config.ApplicationID, config.OrganizationID, unaudited, config.VulnerabilityThresholdTotal)
+					return reports, errors.Errorf(msg)
+				}
+			}
 		}
 	}
 
-	//contrastAudit := contrast.ContrastAudit{
-	//	ToolName:       "contrast",
-	//	ApplicationURL: fmt.Sprintf("%s/Contrast/static/"),
-	//}
+	toolRecordFileName, err := contrast.CreateAndPersistToolRecord(utils, appInfo, "./")
+	if err != nil {
+		log.Entry().Warning("TR_CONTRAST: Failed to create toolrecord file ...", err)
+	} else {
+		reports = append(reports, piperutils.Path{Target: toolRecordFileName})
+	}
 
 	return reports, nil
 }
 
 func getUrl(config *contrastExecuteScanOptions) string {
-	return fmt.Sprintf("https://%s/api/ng/organizations/%s/applications/%s/vulnerabilities",
-		config.Server, config.OrganizationID, config.ApplicationID)
-	//return fmt.Sprintf("https://%s/api/v4/organizations/%s/vulnerabilities",
-	//	config.Server, config.OrganizationID)
+	//return fmt.Sprintf("https://%s/api/ng/organizations/%s/applications/%s",
+	//	config.Server, config.OrganizationID, config.ApplicationID)
+	return fmt.Sprintf("https://%s/api/v4/organizations/%s",
+		config.Server, config.OrganizationID)
 }
 
 func getAuth(config *contrastExecuteScanOptions) string {
