@@ -71,7 +71,7 @@ const (
 )
 
 func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) ([]ContrastFindings, error) {
-	pageSize := 100
+	pageSize := 200
 	pageNumber := 0
 	audited := 0
 	totalAlerts := 0
@@ -82,19 +82,21 @@ func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) ([]Co
 			"page": fmt.Sprintf("%d", pageNumber),
 			"size": fmt.Sprintf("%d", pageSize),
 		}
-		response, err := doRequest(contrast.url+"/vulnerabilities", contrast.apiKey, contrast.auth, params)
+		client := NewContrastClient(contrast.apiKey, contrast.auth)
+		response, err := client.doRequest(contrast.url+"/applications/"+applicationId+"/vulnerabilities", params)
 		if err != nil {
 			return nil, err
 		}
-		defer response.Close()
 
 		data, err := io.ReadAll(response)
 		if err != nil {
+			response.Close()
 			return nil, err
 		}
 
 		var vulnsResponse VulnerabilitiesResponse
 		err = json.Unmarshal(data, &vulnsResponse)
+		response.Close()
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +130,8 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 
 	url := fmt.Sprintf("%s/applications/%s", contrast.url, applicationId)
 
-	response, err := doRequest(url, contrast.apiKey, contrast.auth, nil)
+	client := NewContrastClient(contrast.apiKey, contrast.auth)
+	response, err := client.doRequest(url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -155,15 +158,31 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 	}, nil
 }
 
-func doRequest(url, apiKey, auth string, params map[string]string) (io.ReadCloser, error) {
+type contrastClient interface {
+	doRequest(url, apiKey, auth string, params map[string]string) (io.ReadCloser, error)
+}
+
+type contrastClientInstance struct {
+	apiKey string
+	auth   string
+}
+
+func NewContrastClient(apiKey, auth string) *contrastClientInstance {
+	return &contrastClientInstance{
+		apiKey: apiKey,
+		auth:   auth,
+	}
+}
+
+func (c *contrastClientInstance) doRequest(url string, params map[string]string) (io.ReadCloser, error) {
 	client := http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create request")
 	}
 
-	req.Header.Add("API-Key", apiKey)
-	req.Header.Add("Authorization", auth)
+	req.Header.Add("API-Key", c.apiKey)
+	req.Header.Add("Authorization", c.auth)
 
 	q := req.URL.Query()
 	for param, value := range params {
