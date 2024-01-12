@@ -86,50 +86,27 @@ const (
 )
 
 func (contrast *ContrastInstance) GetVulnerabilities(organizationId, applicationId string) ([]ContrastFindings, error) {
-	pageSize := 10
-	pageNumber := 90
-	audited := 0
-	totalAlerts := 0
+	pageSize := 100
+	pageNumber := 0
 
 	url := fmt.Sprintf("https://cs003.contrastsecurity.com/Contrast/api/ng/%s/orgtraces/filter", organizationId)
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 
-	var vulnerabilities []*Vulnerability
-	for {
-		vulnsResponse, err := getVulnerabilitiesFromClient(client, url, applicationId, pageSize, pageNumber)
-		if err != nil {
-			return nil, err
-		}
+	params := map[string]string{
+		"expand":  "application",
+		"modules": applicationId,
+		"offset":  fmt.Sprintf("%d", pageSize*pageNumber),
+		"limit":   fmt.Sprintf("%d", pageSize),
+	}
 
-		for _, vuln := range vulnsResponse.Traces {
-			vulnerabilities = append(vulnerabilities, &Vulnerability{
-				Category:   vuln.Category,
-				Confidence: vuln.Confidence,
-				Id:         vuln.UUID,
-				Impact:     vuln.Impact,
-				Severity:   vuln.Severity,
-				Status:     vuln.Status,
-				Title:      vuln.Title,
-				RuleName:   vuln.RuleName,
-			})
-			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
-				audited += 1
-			}
-			totalAlerts += 1
-		}
-		for _, link := range vulnsResponse.Links {
-			if link.Rel == "nextPage" {
-				url = link.Href
-				continue
-			}
-		}
-		break
-		//pageNumber++
+	audited, total, _, err := getVulnerabilitiesFromClient(client, url, params)
+	if err != nil {
+		return nil, err
 	}
 
 	auditAll := ContrastFindings{
 		ClassificationName: "Audit All",
-		Total:              totalAlerts,
+		Total:              total,
 		Audited:            audited,
 	}
 
@@ -169,33 +146,57 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 	}, nil
 }
 
-func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url, applicationId string, pageSize, pageNumber int) (*VulnerabilitiesResponse, error) {
-	params := map[string]string{
-		"expand": "application",
-		//"quickFilter": "OPEN",
-		"modules": applicationId,
-		"offset":  fmt.Sprintf("%d", pageSize*pageNumber),
-		"limit":   fmt.Sprintf("%d", pageSize),
-	}
+func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url string, params map[string]string) (int, int, []*Vulnerability, error) {
+	var auditedAll, totalAll int
+	var vulnerabilities []*Vulnerability
 
 	response, err := client.doRequest(url, params)
 	if err != nil {
-		return nil, err
+		return auditedAll, totalAll, vulnerabilities, err
 	}
 
 	data, err := io.ReadAll(response)
 	if err != nil {
 		response.Close()
-		return nil, err
+		return auditedAll, totalAll, vulnerabilities, err
 	}
 
 	var vulnsResponse VulnerabilitiesResponse
 	err = json.Unmarshal(data, &vulnsResponse)
 	response.Close()
 	if err != nil {
-		return nil, err
+		return auditedAll, totalAll, vulnerabilities, err
 	}
-	return &vulnsResponse, nil
+
+	for _, vuln := range vulnsResponse.Traces {
+		vulnerabilities = append(vulnerabilities, &Vulnerability{
+			Category:   vuln.Category,
+			Confidence: vuln.Confidence,
+			Id:         vuln.UUID,
+			Impact:     vuln.Impact,
+			Severity:   vuln.Severity,
+			Status:     vuln.Status,
+			Title:      vuln.Title,
+			RuleName:   vuln.RuleName,
+		})
+		if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
+			auditedAll += 1
+		}
+		totalAll += 1
+	}
+	for _, link := range vulnsResponse.Links {
+		if link.Rel == "nextPage" {
+			audited, total, vulns, err := getVulnerabilitiesFromClient(client, link.Href, nil)
+			if err != nil {
+				return auditedAll, totalAll, vulnerabilities, err
+			}
+			auditedAll += audited
+			totalAll += total
+			vulnerabilities = append(vulnerabilities, vulns...)
+		}
+	}
+
+	return auditedAll, totalAll, vulnerabilities, err
 }
 
 type contrastHTTPClient interface {
