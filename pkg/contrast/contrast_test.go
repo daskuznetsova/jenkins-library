@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 )
 
 var (
@@ -24,4 +25,15 @@ func (c *contrastClientMock) doRequest(url string, params map[string]string) (io
 		return io.NopCloser(strings.NewReader(appInfo)), nil
 	}
 	return nil, fmt.Errorf("error")
+}
+
+func TestGetVulnerabilitiesFromClient(t *testing.T) {
+
+	t.Run("Less items than page size", func(t *testing.T) {
+
+	})
+
+	t.Run("Several pages", func(t *testing.T) {
+
+	})
 }

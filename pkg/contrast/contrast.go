@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/SAP/jenkins-library/pkg/log"
 	"github.com/pkg/errors"
 )
 
@@ -83,34 +84,29 @@ type ApplicationResponse struct {
 const (
 	StatusFixed       = "Fixed"
 	StatusNotAProblem = "Not a problem"
+	AuditAll          = "Audit All"
 )
 
 func (contrast *ContrastInstance) GetVulnerabilities(organizationId, applicationId string) ([]ContrastFindings, error) {
-	pageSize := 100
-	pageNumber := 0
+	if organizationId == "" {
+		return nil, errors.New("Organization Id is empty")
+	}
+	if applicationId == "" {
+		return nil, errors.New("Application Id is empty")
+	}
 
+	pageSize := 100
 	url := fmt.Sprintf("https://cs003.contrastsecurity.com/Contrast/api/ng/%s/orgtraces/filter", organizationId)
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 
 	params := map[string]string{
 		"expand":  "application",
 		"modules": applicationId,
-		"offset":  fmt.Sprintf("%d", pageSize*pageNumber),
+		"offset":  "0",
 		"limit":   fmt.Sprintf("%d", pageSize),
 	}
 
-	audited, total, _, err := getVulnerabilitiesFromClient(client, url, params)
-	if err != nil {
-		return nil, err
-	}
-
-	auditAll := ContrastFindings{
-		ClassificationName: "Audit All",
-		Total:              total,
-		Audited:            audited,
-	}
-
-	return []ContrastFindings{auditAll}, nil
+	return getVulnerabilitiesFromClient(client, url, params)
 }
 
 func (contrast *ContrastInstance) GetApplication(server, organization, applicationId string) (*ApplicationInfo, error) {
@@ -146,39 +142,45 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 	}, nil
 }
 
-func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url string, params map[string]string) (int, int, []*Vulnerability, error) {
+func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url string, params map[string]string) ([]ContrastFindings, error) {
 	var auditedAll, totalAll int
-	var vulnerabilities []*Vulnerability
+	//var vulnerabilities []*Vulnerability
 
 	response, err := client.doRequest(url, params)
 	if err != nil {
-		return auditedAll, totalAll, vulnerabilities, err
+		return nil, err
 	}
 
 	data, err := io.ReadAll(response)
 	if err != nil {
 		response.Close()
-		return auditedAll, totalAll, vulnerabilities, err
+		return nil, err
 	}
 
 	var vulnsResponse VulnerabilitiesResponse
 	err = json.Unmarshal(data, &vulnsResponse)
 	response.Close()
 	if err != nil {
-		return auditedAll, totalAll, vulnerabilities, err
+		return nil, err
+	}
+	if !vulnsResponse.Success {
+		for _, e := range vulnsResponse.Messages {
+			log.Entry().Error(e)
+		}
+		return nil, errors.New("failed to get vulnerabilities")
 	}
 
 	for _, vuln := range vulnsResponse.Traces {
-		vulnerabilities = append(vulnerabilities, &Vulnerability{
-			Category:   vuln.Category,
-			Confidence: vuln.Confidence,
-			Id:         vuln.UUID,
-			Impact:     vuln.Impact,
-			Severity:   vuln.Severity,
-			Status:     vuln.Status,
-			Title:      vuln.Title,
-			RuleName:   vuln.RuleName,
-		})
+		//vulnerabilities = append(vulnerabilities, &Vulnerability{
+		//	Category:   vuln.Category,
+		//	Confidence: vuln.Confidence,
+		//	Id:         vuln.UUID,
+		//	Impact:     vuln.Impact,
+		//	Severity:   vuln.Severity,
+		//	Status:     vuln.Status,
+		//	Title:      vuln.Title,
+		//	RuleName:   vuln.RuleName,
+		//})
 		if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
 			auditedAll += 1
 		}
@@ -186,17 +188,25 @@ func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url string
 	}
 	for _, link := range vulnsResponse.Links {
 		if link.Rel == "nextPage" {
-			audited, total, vulns, err := getVulnerabilitiesFromClient(client, link.Href, nil)
+			contrastFindings, err := getVulnerabilitiesFromClient(client, link.Href, nil)
 			if err != nil {
-				return auditedAll, totalAll, vulnerabilities, err
+				return nil, err
 			}
-			auditedAll += audited
-			totalAll += total
-			vulnerabilities = append(vulnerabilities, vulns...)
+			for i, fr := range contrastFindings {
+				if fr.ClassificationName == AuditAll {
+					contrastFindings[i].Total += totalAll
+					contrastFindings[i].Audited += auditedAll
+				}
+			}
+			return contrastFindings, nil
 		}
 	}
-
-	return auditedAll, totalAll, vulnerabilities, err
+	auditAllFindings := ContrastFindings{
+		ClassificationName: AuditAll,
+		Total:              totalAll,
+		Audited:            auditedAll,
+	}
+	return []ContrastFindings{auditAllFindings}, nil
 }
 
 type contrastHTTPClient interface {

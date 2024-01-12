@@ -55,6 +55,10 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	if err != nil {
 		return reports, err
 	}
+	log.Entry().Debugf("Contrast Findings:")
+	for _, f := range findings {
+		log.Entry().Debugf("Classification %s, total: %d, audited: %d", f.ClassificationName, f.Total, f.Audited)
+	}
 
 	contrastAudit := contrast.ContrastAudit{
 		ToolName: "contrast",
