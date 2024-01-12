@@ -29,14 +29,14 @@ func NewContrastInstance(url, apiKey, auth string) ContrastInstance {
 }
 
 type Vulnerability struct {
-	ApplicationId string `json:"applicationId"`
-	Category      string `json:"category"`
-	Id            string `json:"id"`
-	Severity      string `json:"severity"`
-	Status        string `json:"status"`
-	Substatus     string `json:"substatus"`
-	Title         string `json:"title"`
-	RuleName      string `json:"ruleName"`
+	Category   string
+	Id         string
+	Severity   string
+	Status     string
+	Title      string
+	RuleName   string
+	Confidence string
+	Impact     string
 }
 
 type Pageable struct {
@@ -48,12 +48,27 @@ type Pageable struct {
 }
 
 type VulnerabilitiesResponse struct {
-	Content       []Vulnerability `json:"content"`
-	Pageable      Pageable        `json:"pageable"`
-	Last          bool            `json:"last"`
-	TotalPages    int             `json:"totalPages"`
-	TotalElements int             `json:"totalElements"`
-	Empty         bool            `json:"empty"`
+	Success  bool                 `json:"success"`
+	Messages []string             `json:"messages"`
+	Traces   []VulnerabilityTrace `json:"traces"`
+	Count    int                  `json:"count"`
+	Links    []NextPageLink       `json:"links"`
+}
+
+type VulnerabilityTrace struct {
+	Category   string `json:"category"`
+	Confidence string `json:"confidence"`
+	Impact     string `json:"impact"`
+	RuleName   string `json:"rule_name"`
+	Severity   string `json:"severity"`
+	Status     string `json:"status"`
+	Title      string `json:"title"`
+	UUID       string `json:"uuid"`
+}
+
+type NextPageLink struct {
+	Rel  string `json:"rel"`
+	Href string `json:"href"`
 }
 
 type ApplicationResponse struct {
@@ -70,50 +85,46 @@ const (
 	StatusNotAProblem = "Not a problem"
 )
 
-func (contrast *ContrastInstance) GetVulnerabilities(applicationId string) ([]ContrastFindings, error) {
-	pageSize := 200
-	pageNumber := 0
+func (contrast *ContrastInstance) GetVulnerabilities(organizationId, applicationId string) ([]ContrastFindings, error) {
+	pageSize := 10
+	pageNumber := 90
 	audited := 0
 	totalAlerts := 0
 
-	var vulnerabilities []Vulnerability
+	url := fmt.Sprintf("https://cs003.contrastsecurity.com/Contrast/api/ng/%s/orgtraces/filter", organizationId)
+	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
+
+	var vulnerabilities []*Vulnerability
 	for {
-		params := map[string]string{
-			"page": fmt.Sprintf("%d", pageNumber),
-			"size": fmt.Sprintf("%d", pageSize),
-		}
-		client := NewContrastClient(contrast.apiKey, contrast.auth)
-		response, err := client.doRequest(contrast.url+"/applications/"+applicationId+"/vulnerabilities", params)
+		vulnsResponse, err := getVulnerabilitiesFromClient(client, url, applicationId, pageSize, pageNumber)
 		if err != nil {
 			return nil, err
 		}
 
-		data, err := io.ReadAll(response)
-		if err != nil {
-			response.Close()
-			return nil, err
+		for _, vuln := range vulnsResponse.Traces {
+			vulnerabilities = append(vulnerabilities, &Vulnerability{
+				Category:   vuln.Category,
+				Confidence: vuln.Confidence,
+				Id:         vuln.UUID,
+				Impact:     vuln.Impact,
+				Severity:   vuln.Severity,
+				Status:     vuln.Status,
+				Title:      vuln.Title,
+				RuleName:   vuln.RuleName,
+			})
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
+				audited += 1
+			}
+			totalAlerts += 1
 		}
-
-		var vulnsResponse VulnerabilitiesResponse
-		err = json.Unmarshal(data, &vulnsResponse)
-		response.Close()
-		if err != nil {
-			return nil, err
-		}
-
-		for _, vuln := range vulnsResponse.Content {
-			if vuln.ApplicationId == applicationId {
-				vulnerabilities = append(vulnerabilities, vuln)
-				if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
-					audited += 1
-				}
-				totalAlerts += 1
+		for _, link := range vulnsResponse.Links {
+			if link.Rel == "nextPage" {
+				url = link.Href
+				continue
 			}
 		}
-		if vulnsResponse.Last {
-			break
-		}
-		pageNumber++
+		break
+		//pageNumber++
 	}
 
 	auditAll := ContrastFindings{
@@ -130,7 +141,7 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 
 	url := fmt.Sprintf("%s/applications/%s", contrast.url, applicationId)
 
-	client := NewContrastClient(contrast.apiKey, contrast.auth)
+	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 	response, err := client.doRequest(url, nil)
 	if err != nil {
 		return nil, err
@@ -158,23 +169,52 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 	}, nil
 }
 
-type contrastClient interface {
+func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url, applicationId string, pageSize, pageNumber int) (*VulnerabilitiesResponse, error) {
+	params := map[string]string{
+		"expand": "application",
+		//"quickFilter": "OPEN",
+		"modules": applicationId,
+		"offset":  fmt.Sprintf("%d", pageSize*pageNumber),
+		"limit":   fmt.Sprintf("%d", pageSize),
+	}
+
+	response, err := client.doRequest(url, params)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(response)
+	if err != nil {
+		response.Close()
+		return nil, err
+	}
+
+	var vulnsResponse VulnerabilitiesResponse
+	err = json.Unmarshal(data, &vulnsResponse)
+	response.Close()
+	if err != nil {
+		return nil, err
+	}
+	return &vulnsResponse, nil
+}
+
+type contrastHTTPClient interface {
 	doRequest(url, apiKey, auth string, params map[string]string) (io.ReadCloser, error)
 }
 
-type contrastClientInstance struct {
+type contrastHTTPClientInstance struct {
 	apiKey string
 	auth   string
 }
 
-func NewContrastClient(apiKey, auth string) *contrastClientInstance {
-	return &contrastClientInstance{
+func newContrastHTTPClient(apiKey, auth string) *contrastHTTPClientInstance {
+	return &contrastHTTPClientInstance{
 		apiKey: apiKey,
 		auth:   auth,
 	}
 }
 
-func (c *contrastClientInstance) doRequest(url string, params map[string]string) (io.ReadCloser, error) {
+func (c *contrastHTTPClientInstance) doRequest(url string, params map[string]string) (io.ReadCloser, error) {
 	client := http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

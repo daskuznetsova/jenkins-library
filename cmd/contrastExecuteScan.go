@@ -51,7 +51,7 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 		return nil, err
 	}
 
-	findings, err := contrastInstance.GetVulnerabilities(config.ApplicationID)
+	findings, err := contrastInstance.GetVulnerabilities(config.OrganizationID, config.ApplicationID)
 	if err != nil {
 		return reports, err
 	}
