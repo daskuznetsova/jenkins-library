@@ -85,6 +85,7 @@ const (
 	StatusFixed       = "Fixed"
 	StatusNotAProblem = "Not a problem"
 	AuditAll          = "Audit All"
+	pageSize          = 10
 )
 
 func (contrast *ContrastInstance) GetVulnerabilities(organizationId, applicationId string) ([]ContrastFindings, error) {
@@ -95,7 +96,6 @@ func (contrast *ContrastInstance) GetVulnerabilities(organizationId, application
 		return nil, errors.New("Application Id is empty")
 	}
 
-	pageSize := 100
 	url := fmt.Sprintf("https://cs003.contrastsecurity.com/Contrast/api/ng/%s/orgtraces/filter", organizationId)
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 
@@ -110,11 +110,24 @@ func (contrast *ContrastInstance) GetVulnerabilities(organizationId, application
 }
 
 func (contrast *ContrastInstance) GetApplication(server, organization, applicationId string) (*ApplicationInfo, error) {
-	var appResponse ApplicationResponse
-
 	url := fmt.Sprintf("%s/applications/%s", contrast.url, applicationId)
 
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
+	app, err := getApplicationFromClient(client, url)
+	if err != nil {
+		return nil, err
+	}
+	app.ServerUrl = server
+	app.OrganizationId = organization
+	app.Id = applicationId
+	app.ApplicationUrl = fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
+		server, organization, applicationId)
+	return app, nil
+}
+
+func getApplicationFromClient(client contrastHTTPClient, url string) (*ApplicationInfo, error) {
+	var appResponse ApplicationResponse
+
 	response, err := client.doRequest(url, nil)
 	if err != nil {
 		return nil, err
@@ -131,18 +144,13 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 	}
 
 	return &ApplicationInfo{
-		ServerUrl:      server,
-		OrganizationId: organization,
-		Id:             applicationId,
-		Name:           appResponse.Name,
-		DisplayName:    appResponse.DisplayName,
-		Path:           appResponse.Path,
-		ApplicationUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
-			server, organization, applicationId),
+		Name:        appResponse.Name,
+		DisplayName: appResponse.DisplayName,
+		Path:        appResponse.Path,
 	}, nil
 }
 
-func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url string, params map[string]string) ([]ContrastFindings, error) {
+func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, params map[string]string) ([]ContrastFindings, error) {
 	var auditedAll, totalAll int
 	//var vulnerabilities []*Vulnerability
 
@@ -210,7 +218,7 @@ func getVulnerabilitiesFromClient(client *contrastHTTPClientInstance, url string
 }
 
 type contrastHTTPClient interface {
-	doRequest(url, apiKey, auth string, params map[string]string) (io.ReadCloser, error)
+	doRequest(url string, params map[string]string) (io.ReadCloser, error)
 }
 
 type contrastHTTPClientInstance struct {
