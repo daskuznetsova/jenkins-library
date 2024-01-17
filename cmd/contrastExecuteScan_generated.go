@@ -153,11 +153,6 @@ func contrastExecuteScanMetadata() config.StepData {
 					{Name: "userCredentialsId", Description: "Jenkins 'Username with password' credentials ID containing user api key for Contrast.", Type: "jenkins"},
 					{Name: "serviceKeyCredentialsId", Description: "Jenkins 'Secret text' credentials ID containing service key for Contrast.", Type: "jenkins"},
 				},
-				Resources: []config.StepResources{
-					{Name: "commonPipelineEnvironment"},
-					{Name: "buildDescriptor", Type: "stash"},
-					{Name: "tests", Type: "stash"},
-				},
 				Parameters: []config.StepParameters{
 					{
 						Name: "userApiKey",
@@ -174,10 +169,10 @@ func contrastExecuteScanMetadata() config.StepData {
 								Default: "contrast",
 							},
 						},
-						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Scope:     []string{"PARAMETERS", "STAGES", "STEPS"},
 						Type:      "string",
 						Mandatory: false,
-						Aliases:   []config.Alias{{Name: "api_key"}},
+						Aliases:   []config.Alias{},
 						Default:   os.Getenv("PIPER_userApiKey"),
 					},
 					{
@@ -215,7 +210,7 @@ func contrastExecuteScanMetadata() config.StepData {
 								Default: "contrast",
 							},
 						},
-						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Scope:     []string{"PARAMETERS", "STAGES", "STEPS"},
 						Type:      "string",
 						Mandatory: false,
 						Aliases:   []config.Alias{},
