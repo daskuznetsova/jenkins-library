@@ -189,7 +189,7 @@ func contrastExecuteScanMetadata() config.StepData {
 								Default: "contrast",
 							},
 						},
-						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Scope:     []string{"PARAMETERS", "STAGES", "STEPS"},
 						Type:      "string",
 						Mandatory: false,
 						Aliases:   []config.Alias{{Name: "service_key"}},
