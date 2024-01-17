@@ -149,6 +149,10 @@ func contrastExecuteScanMetadata() config.StepData {
 		},
 		Spec: config.StepSpec{
 			Inputs: config.StepInputs{
+				Secrets: []config.StepSecrets{
+					{Name: "userApiKeyCredentialsId", Description: "Jenkins 'Secret text' credentials ID containing user api key for Contrast.", Type: "jenkins"},
+					{Name: "serviceKeyCredentialsId", Description: "Jenkins 'Secret text' credentials ID containing service key for Contrast.", Type: "jenkins"},
+				},
 				Parameters: []config.StepParameters{
 					{
 						Name: "userApiKey",
