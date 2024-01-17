@@ -16,7 +16,6 @@ import (
 )
 
 type contrastExecuteScanOptions struct {
-	GithubToken                 string `json:"githubToken,omitempty"`
 	UserAPIKey                  string `json:"userApiKey,omitempty"`
 	ServiceKey                  string `json:"serviceKey,omitempty"`
 	Username                    string `json:"username,omitempty"`
@@ -58,7 +57,6 @@ func ContrastExecuteScanCommand() *cobra.Command {
 				log.SetErrorCategory(log.ErrorConfiguration)
 				return err
 			}
-			log.RegisterSecret(stepConfig.GithubToken)
 			log.RegisterSecret(stepConfig.UserAPIKey)
 			log.RegisterSecret(stepConfig.ServiceKey)
 			log.RegisterSecret(stepConfig.Username)
@@ -130,7 +128,6 @@ func ContrastExecuteScanCommand() *cobra.Command {
 }
 
 func addContrastExecuteScanFlags(cmd *cobra.Command, stepConfig *contrastExecuteScanOptions) {
-	cmd.Flags().StringVar(&stepConfig.GithubToken, "githubToken", os.Getenv("PIPER_githubToken"), "GitHub personal access token in plain text. NEVER set this parameter in a file commited to a source code repository. This parameter is intended to be used from the command line or set securely via the environment variable listed below. In most pipeline use-cases, you should instead either store the token in Vault (where it can be automatically retrieved by the step from one of the paths listed below) or store it as a Jenkins secret and configure the secret's id via the `githubTokenCredentialsId` parameter.")
 	cmd.Flags().StringVar(&stepConfig.UserAPIKey, "userApiKey", os.Getenv("PIPER_userApiKey"), "User API Key for Contrast in plain text. NEVER set this parameter in a file commited to a source code repository. This parameter is intended to be used from the command line or set securely via the environment variable listed below. In most pipeline use-cases, you should instead either store the token in Vault (where it can be automatically retrieved by the step from one of the paths listed below) or store it as a Jenkins secret and configure the secret's id via the `userApiKeyCredentialsId` parameter.")
 	cmd.Flags().StringVar(&stepConfig.ServiceKey, "serviceKey", os.Getenv("PIPER_serviceKey"), "Service Key for Contrast in plain text. NEVER set this parameter in a file commited to a source code repository. This parameter is intended to be used from the command line or set securely via the environment variable listed below. In most pipeline use-cases, you should instead either store the token in Vault (where it can be automatically retrieved by the step from one of the paths listed below) or store it as a Jenkins secret and configure the secret's id via the `serviceKeyCredentialsId` parameter.")
 	cmd.Flags().StringVar(&stepConfig.Username, "username", os.Getenv("PIPER_username"), "User name for Contrast in plain text.")
@@ -153,9 +150,8 @@ func contrastExecuteScanMetadata() config.StepData {
 		Spec: config.StepSpec{
 			Inputs: config.StepInputs{
 				Secrets: []config.StepSecrets{
-					{Name: "userApiKeyCredentialsId", Description: "Jenkins 'Secret text' credentials ID containing user api key for Contrast.", Type: "jenkins"},
+					{Name: "userCredentialsId", Description: "Jenkins 'Username with password' credentials ID containing user api key for Contrast.", Type: "jenkins"},
 					{Name: "serviceKeyCredentialsId", Description: "Jenkins 'Secret text' credentials ID containing service key for Contrast.", Type: "jenkins"},
-					{Name: "githubTokenCredentialsId", Description: "Jenkins 'Secret text' credentials ID containing token to authenticate to GitHub.", Type: "jenkins"},
 				},
 				Resources: []config.StepResources{
 					{Name: "commonPipelineEnvironment"},
@@ -164,31 +160,12 @@ func contrastExecuteScanMetadata() config.StepData {
 				},
 				Parameters: []config.StepParameters{
 					{
-						Name: "githubToken",
-						ResourceRef: []config.ResourceReference{
-							{
-								Name: "githubTokenCredentialsId",
-								Type: "secret",
-							},
-
-							{
-								Name:    "githubVaultSecretName",
-								Type:    "vaultSecret",
-								Default: "github",
-							},
-						},
-						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
-						Type:      "string",
-						Mandatory: false,
-						Aliases:   []config.Alias{{Name: "access_token"}},
-						Default:   os.Getenv("PIPER_githubToken"),
-					},
-					{
 						Name: "userApiKey",
 						ResourceRef: []config.ResourceReference{
 							{
-								Name: "userApiKeyCredentialsId",
-								Type: "secret",
+								Name:  "userCredentialsId",
+								Param: "userApiKey",
+								Type:  "secret",
 							},
 
 							{
@@ -227,8 +204,9 @@ func contrastExecuteScanMetadata() config.StepData {
 						Name: "username",
 						ResourceRef: []config.ResourceReference{
 							{
-								Name: "userCredentialsId",
-								Type: "secret",
+								Name:  "userCredentialsId",
+								Param: "username",
+								Type:  "secret",
 							},
 
 							{

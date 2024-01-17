@@ -7,8 +7,8 @@ metadata:
 spec:
   inputs:
     secrets:
-      - name: userApiKeyCredentialsId
-        description: Jenkins 'Secret text' credentials ID containing user api key for Contrast.
+      - name: userCredentialsId
+        description: Jenkins 'Username with password' credentials ID containing user api key for Contrast.
         type: jenkins
       - name: serviceKeyCredentialsId
         description: Jenkins 'Secret text' credentials ID containing service key for Contrast.
@@ -34,8 +34,9 @@ spec:
         aliases:
           - name: api_key
         resourceRef:
-          - name: userApiKeyCredentialsId
+          - name: userCredentialsId
             type: secret
+            param: userApiKey
           - type: vaultSecret
             default: contrast
             name: userApiKey
@@ -68,6 +69,7 @@ spec:
         resourceRef:
           - name: userCredentialsId
             type: secret
+            param: username
           - type: vaultSecret
             default: contrast
             name: username
