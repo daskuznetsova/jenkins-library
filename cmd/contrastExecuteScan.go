@@ -48,10 +48,14 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	if len(config.UserAPIKey) == 0 {
 		log.Entry().Error("empty user api key")
 		return nil, errors.New("empty user api key")
+	} else {
+		log.Entry().Debug("user api key is not empty")
 	}
 	if len(config.ServiceKey) == 0 {
 		log.Entry().Error("empty service key")
 		return nil, errors.New("empty service key")
+	} else {
+		log.Entry().Debug("service key is not empty")
 	}
 
 	contrastInstance := contrast.NewContrastInstance(getUrl(config), config.UserAPIKey, getAuth(config))
