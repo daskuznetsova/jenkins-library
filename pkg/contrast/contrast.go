@@ -110,11 +110,14 @@ func (contrast *ContrastInstance) GetVulnerabilities(organizationId, application
 }
 
 func (contrast *ContrastInstance) GetApplication(server, organization, applicationId string) (*ApplicationInfo, error) {
+	log.Entry().Debug("GetApplication started")
+
 	url := fmt.Sprintf("%s/applications/%s", contrast.url, applicationId)
 
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 	app, err := getApplicationFromClient(client, url)
 	if err != nil {
+		log.Entry().Errorf("failed to get application from client: %v", err)
 		return nil, err
 	}
 	app.ServerUrl = server
@@ -122,6 +125,7 @@ func (contrast *ContrastInstance) GetApplication(server, organization, applicati
 	app.Id = applicationId
 	app.ApplicationUrl = fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
 		server, organization, applicationId)
+	log.Entry().Debugf("application info: %v", app)
 	return app, nil
 }
 
