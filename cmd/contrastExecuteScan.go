@@ -45,6 +45,15 @@ func contrastExecuteScan(config contrastExecuteScanOptions, telemetryData *telem
 func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *telemetry.CustomData, utils contrastExecuteScanUtils) ([]piperutils.Path, error) {
 	var reports []piperutils.Path
 
+	if len(config.UserAPIKey) == 0 {
+		log.Entry().Error("empty user api key")
+		return nil, errors.New("empty user api key")
+	}
+	if len(config.ServiceKey) == 0 {
+		log.Entry().Error("empty service key")
+		return nil, errors.New("empty service key")
+	}
+
 	contrastInstance := contrast.NewContrastInstance(getUrl(config), config.UserAPIKey, getAuth(config))
 	appInfo, err := contrastInstance.GetApplication(config.Server, config.OrganizationID, config.ApplicationID)
 	if err != nil {
