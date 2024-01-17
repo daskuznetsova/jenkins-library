@@ -45,6 +45,11 @@ func contrastExecuteScan(config contrastExecuteScanOptions, telemetryData *telem
 func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *telemetry.CustomData, utils contrastExecuteScanUtils) ([]piperutils.Path, error) {
 	var reports []piperutils.Path
 
+	if len(config.GithubToken) == 0 {
+		log.Entry().Error("empty github token")
+		return nil, errors.New("empty github token")
+	}
+
 	if len(config.UserAPIKey) == 0 {
 		log.Entry().Error("empty user api key")
 		return nil, errors.New("empty user api key")
