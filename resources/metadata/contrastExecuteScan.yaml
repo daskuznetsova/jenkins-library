@@ -67,7 +67,6 @@ spec:
           - PARAMETERS
           - STAGES
           - STEPS
-        default: "cs003.contrastsecurity.com"
       - name: organizationId
         type: string
         description: "Organization Id in Contrast."
@@ -75,7 +74,6 @@ spec:
           - PARAMETERS
           - STAGES
           - STEPS
-        default: "53980ebc-de2c-4e0a-b138-f61cb843f861"
       - name: applicationId
         type: string
         description: "Application Id in Contrast."

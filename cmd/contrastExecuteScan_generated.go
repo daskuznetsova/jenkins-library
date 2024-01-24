@@ -131,8 +131,8 @@ func addContrastExecuteScanFlags(cmd *cobra.Command, stepConfig *contrastExecute
 	cmd.Flags().StringVar(&stepConfig.UserAPIKey, "userApiKey", os.Getenv("PIPER_userApiKey"), "User API Key for Contrast in plain text. NEVER set this parameter in a file commited to a source code repository. This parameter is intended to be used from the command line or set securely via the environment variable listed below. In most pipeline use-cases, you should instead either store the token in Vault (where it can be automatically retrieved by the step from one of the paths listed below) or store it as a Jenkins secret and configure the secret's id via the `userApiKeyCredentialsId` parameter.")
 	cmd.Flags().StringVar(&stepConfig.ServiceKey, "serviceKey", os.Getenv("PIPER_serviceKey"), "Service Key for Contrast in plain text. NEVER set this parameter in a file commited to a source code repository. This parameter is intended to be used from the command line or set securely via the environment variable listed below. In most pipeline use-cases, you should instead either store the token in Vault (where it can be automatically retrieved by the step from one of the paths listed below) or store it as a Jenkins secret and configure the secret's id via the `serviceKeyCredentialsId` parameter.")
 	cmd.Flags().StringVar(&stepConfig.Username, "username", os.Getenv("PIPER_username"), "User name for Contrast in plain text.")
-	cmd.Flags().StringVar(&stepConfig.Server, "server", `cs003.contrastsecurity.com`, "Contrast server url.")
-	cmd.Flags().StringVar(&stepConfig.OrganizationID, "organizationId", `53980ebc-de2c-4e0a-b138-f61cb843f861`, "Organization Id in Contrast.")
+	cmd.Flags().StringVar(&stepConfig.Server, "server", os.Getenv("PIPER_server"), "Contrast server url.")
+	cmd.Flags().StringVar(&stepConfig.OrganizationID, "organizationId", os.Getenv("PIPER_organizationId"), "Organization Id in Contrast.")
 	cmd.Flags().StringVar(&stepConfig.ApplicationID, "applicationId", os.Getenv("PIPER_applicationId"), "Application Id in Contrast.")
 	cmd.Flags().IntVar(&stepConfig.VulnerabilityThresholdTotal, "vulnerabilityThresholdTotal", 0, "Threashold for maximum number of allowed vulnerabilities.")
 	cmd.Flags().BoolVar(&stepConfig.CheckForCompliance, "checkForCompliance", false, "If set to true, the piper step checks for compliance based on vulnerability threadholds. Example - If total vulnerabilites are 10 and vulnerabilityThresholdTotal is set as 0, then the steps throws an compliance error.")
@@ -223,7 +223,7 @@ func contrastExecuteScanMetadata() config.StepData {
 						Type:        "string",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     `cs003.contrastsecurity.com`,
+						Default:     os.Getenv("PIPER_server"),
 					},
 					{
 						Name:        "organizationId",
@@ -232,7 +232,7 @@ func contrastExecuteScanMetadata() config.StepData {
 						Type:        "string",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     `53980ebc-de2c-4e0a-b138-f61cb843f861`,
+						Default:     os.Getenv("PIPER_organizationId"),
 					},
 					{
 						Name:        "applicationId",
