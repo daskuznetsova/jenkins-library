@@ -46,21 +46,25 @@ func contrastExecuteScan(config contrastExecuteScanOptions, telemetryData *telem
 func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *telemetry.CustomData, utils contrastExecuteScanUtils) (reports []piperutils.Path, err error) {
 	auth, err := getAuth(config)
 	if err != nil {
+		log.Entry().Errorf("error while encrypting auth token")
 		return
 	}
 	appAPIUrl, appUIUrl, err := getApplicationUrls(config)
 	if err != nil {
+		log.Entry().Errorf("error while checking configs for getting app info")
 		return
 	}
 
 	contrastInstance := contrast.NewContrastInstance(appAPIUrl, config.UserAPIKey, auth)
 	appInfo, err := contrastInstance.GetAppInfo(appUIUrl, config.Server)
 	if err != nil {
+		log.Entry().Errorf("error while getting app info")
 		return
 	}
 
 	findings, err := contrastInstance.GetVulnerabilities()
 	if err != nil {
+		log.Entry().Errorf("error while getting vulns")
 		return
 	}
 	log.Entry().Debugf("Contrast Findings:")
@@ -75,6 +79,7 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	}
 	paths, err := contrast.WriteJSONReport(contrastAudit, "./")
 	if err != nil {
+		log.Entry().Errorf("error while writing json report")
 		return
 	}
 	reports = append(reports, paths...)
