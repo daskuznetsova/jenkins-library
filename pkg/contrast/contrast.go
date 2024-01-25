@@ -11,8 +11,8 @@ import (
 )
 
 type Contrast interface {
-	GetVulnerabilities(applicationId string) error
-	GetApplication(applicationId string) (ApplicationInfo, error)
+	GetVulnerabilities() error
+	GetAppInfo(appUIUrl string)
 }
 
 type ContrastInstance struct {
@@ -46,6 +46,24 @@ type Pageable struct {
 	Paged      bool `json:"paged"`
 	Unpaged    bool `json:"unpaged"`
 	Offset     int  `json:"offset"`
+}
+
+type VulnsResponse struct {
+	Pageable         Pageable `json:"pageable"`
+	Size             int      `json:"size"`
+	TotalElements    int      `json:"totalElements"`
+	TotalPages       int      `json:"totalPages"`
+	Empty            bool     `json:"empty"`
+	First            bool     `json:"first"`
+	Last             bool     `json:"last"`
+	Number           int      `json:"number"`
+	NumberOfElements int      `json:"numberOfElements"`
+	Vulnerabilities  []Vuln   `json:"content"`
+}
+
+type Vuln struct {
+	Severity string `json:"severity"`
+	Status   string `json:"status"`
 }
 
 type VulnerabilitiesResponse struct {
@@ -88,44 +106,21 @@ const (
 	pageSize          = 10
 )
 
-func (contrast *ContrastInstance) GetVulnerabilities(organizationId, applicationId string) ([]ContrastFindings, error) {
-	if organizationId == "" {
-		return nil, errors.New("Organization Id is empty")
-	}
-	if applicationId == "" {
-		return nil, errors.New("Application Id is empty")
-	}
-
-	url := fmt.Sprintf("https://cs003.contrastsecurity.com/Contrast/api/ng/%s/orgtraces/filter", organizationId)
+func (contrast *ContrastInstance) GetVulnerabilities() ([]ContrastFindings, error) {
+	url := contrast.url + "/vulnerabilities"
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 
-	params := map[string]string{
-		"expand":  "application",
-		"modules": applicationId,
-		"offset":  "0",
-		"limit":   fmt.Sprintf("%d", pageSize),
-	}
-
-	return getVulnerabilitiesFromClient(client, url, params)
+	return getVulnerabilitiesFromClient(client, url, 0)
 }
 
-func (contrast *ContrastInstance) GetApplication(server, organization, applicationId string) (*ApplicationInfo, error) {
-	log.Entry().Debug("GetApplication started")
-
-	url := fmt.Sprintf("%s/applications/%s", contrast.url, applicationId)
-
+func (contrast *ContrastInstance) GetAppInfo(appUIUrl string) (*ApplicationInfo, error) {
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
-	app, err := getApplicationFromClient(client, url)
+	app, err := getApplicationFromClient(client, contrast.url)
 	if err != nil {
 		log.Entry().Errorf("failed to get application from client: %v", err)
 		return nil, err
 	}
-	app.ServerUrl = server
-	app.OrganizationId = organization
-	app.Id = applicationId
-	app.ApplicationUrl = fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
-		server, organization, applicationId)
-	log.Entry().Debugf("application info: %v", app)
+	app.Url = appUIUrl
 	return app, nil
 }
 
@@ -148,15 +143,17 @@ func getApplicationFromClient(client contrastHTTPClient, url string) (*Applicati
 	}
 
 	return &ApplicationInfo{
-		Name:        appResponse.Name,
-		DisplayName: appResponse.DisplayName,
-		Path:        appResponse.Path,
+		Id:   appResponse.Id,
+		Name: appResponse.Name,
 	}, nil
 }
 
-func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, params map[string]string) ([]ContrastFindings, error) {
+func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page int) ([]ContrastFindings, error) {
 	var auditedAll, totalAll int
-	//var vulnerabilities []*Vulnerability
+	params := map[string]string{
+		"page": fmt.Sprintf("%d", page),
+		"size": fmt.Sprintf("%d", pageSize),
+	}
 
 	response, err := client.doRequest(url, params)
 	if err != nil {
@@ -169,49 +166,35 @@ func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, params 
 		return nil, err
 	}
 
-	var vulnsResponse VulnerabilitiesResponse
+	var vulnsResponse VulnsResponse
 	err = json.Unmarshal(data, &vulnsResponse)
 	response.Close()
 	if err != nil {
 		return nil, err
 	}
-	if !vulnsResponse.Success {
-		for _, e := range vulnsResponse.Messages {
-			log.Entry().Error(e)
-		}
-		return nil, errors.New("failed to get vulnerabilities")
+	if vulnsResponse.Empty {
+		log.Entry().Debug("empty response")
+		return nil, nil
 	}
 
-	for _, vuln := range vulnsResponse.Traces {
-		//vulnerabilities = append(vulnerabilities, &Vulnerability{
-		//	Category:   vuln.Category,
-		//	Confidence: vuln.Confidence,
-		//	Id:         vuln.UUID,
-		//	Impact:     vuln.Impact,
-		//	Severity:   vuln.Severity,
-		//	Status:     vuln.Status,
-		//	Title:      vuln.Title,
-		//	RuleName:   vuln.RuleName,
-		//})
+	for _, vuln := range vulnsResponse.Vulnerabilities {
 		if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
 			auditedAll += 1
 		}
 		totalAll += 1
 	}
-	for _, link := range vulnsResponse.Links {
-		if link.Rel == "nextPage" {
-			contrastFindings, err := getVulnerabilitiesFromClient(client, link.Href, nil)
-			if err != nil {
-				return nil, err
-			}
-			for i, fr := range contrastFindings {
-				if fr.ClassificationName == AuditAll {
-					contrastFindings[i].Total += totalAll
-					contrastFindings[i].Audited += auditedAll
-				}
-			}
-			return contrastFindings, nil
+	if !vulnsResponse.Last {
+		contrastFindings, err := getVulnerabilitiesFromClient(client, url, page+1)
+		if err != nil {
+			return nil, err
 		}
+		for i, fr := range contrastFindings {
+			if fr.ClassificationName == AuditAll {
+				contrastFindings[i].Total += totalAll
+				contrastFindings[i].Audited += auditedAll
+			}
+		}
+		return contrastFindings, nil
 	}
 	auditAllFindings := ContrastFindings{
 		ClassificationName: AuditAll,

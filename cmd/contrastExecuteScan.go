@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/SAP/jenkins-library/pkg/command"
 	"github.com/SAP/jenkins-library/pkg/contrast"
@@ -42,31 +43,25 @@ func contrastExecuteScan(config contrastExecuteScanOptions, telemetryData *telem
 	}
 }
 
-func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *telemetry.CustomData, utils contrastExecuteScanUtils) ([]piperutils.Path, error) {
-	var reports []piperutils.Path
-
-	if len(config.UserAPIKey) == 0 {
-		log.Entry().Error("empty user api key")
-		return nil, errors.New("empty user api key")
-	} else {
-		log.Entry().Debug("user api key is not empty")
-	}
-	if len(config.ServiceKey) == 0 {
-		log.Entry().Error("empty service key")
-		return nil, errors.New("empty service key")
-	} else {
-		log.Entry().Debug("service key is not empty")
-	}
-
-	contrastInstance := contrast.NewContrastInstance(getUrl(config), config.UserAPIKey, getAuth(config))
-	appInfo, err := contrastInstance.GetApplication(config.Server, config.OrganizationID, config.ApplicationID)
+func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *telemetry.CustomData, utils contrastExecuteScanUtils) (reports []piperutils.Path, err error) {
+	auth, err := getAuth(config)
 	if err != nil {
-		return nil, err
+		return
+	}
+	appAPIUrl, appUIUrl, err := getApplicationUrls(config)
+	if err != nil {
+		return
 	}
 
-	findings, err := contrastInstance.GetVulnerabilities(config.OrganizationID, config.ApplicationID)
+	contrastInstance := contrast.NewContrastInstance(appAPIUrl, config.UserAPIKey, auth)
+	appInfo, err := contrastInstance.GetAppInfo(appUIUrl)
 	if err != nil {
-		return reports, err
+		return
+	}
+
+	findings, err := contrastInstance.GetVulnerabilities()
+	if err != nil {
+		return
 	}
 	log.Entry().Debugf("Contrast Findings:")
 	for _, f := range findings {
@@ -77,13 +72,11 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 		ToolName: "contrast",
 		ApplicationUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
 			config.Server, config.OrganizationID, config.ApplicationID),
-		ApplicationVulnsUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s/vulns",
-			config.Server, config.OrganizationID, config.ApplicationID),
 		ScanResults: findings,
 	}
 	paths, err := contrast.WriteJSONReport(contrastAudit, "./")
 	if err != nil {
-		return reports, err
+		return
 	}
 	reports = append(reports, paths...)
 
@@ -107,16 +100,38 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 		reports = append(reports, piperutils.Path{Target: toolRecordFileName})
 	}
 
-	return reports, nil
+	return
 }
 
-func getUrl(config *contrastExecuteScanOptions) string {
-	//return fmt.Sprintf("https://%s/api/ng/organizations/%s/applications/%s",
-	//	config.Server, config.OrganizationID, config.ApplicationID)
-	return fmt.Sprintf("https://%s/api/v4/organizations/%s",
-		config.Server, config.OrganizationID)
+func getApplicationUrls(config *contrastExecuteScanOptions) (string, string, error) {
+	if config.Server == "" {
+		return "", "", errors.New("server is empty")
+	}
+	if config.OrganizationID == "" {
+		return "", "", errors.New("organizationId is empty")
+	}
+	if config.ApplicationID == "" {
+		return "", "", errors.New("applicationId is empty")
+	}
+	if !strings.HasPrefix(config.Server, "https://") {
+		config.Server = "https://" + config.Server
+	}
+
+	return fmt.Sprintf("https://%s/api/v4/organizations/%s/applications/%s",
+			config.Server, config.OrganizationID, config.ApplicationID),
+		fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
+			config.Server, config.OrganizationID, config.ApplicationID), nil
 }
 
-func getAuth(config *contrastExecuteScanOptions) string {
-	return base64.StdEncoding.EncodeToString([]byte(config.Username + ":" + config.ServiceKey))
+func getAuth(config *contrastExecuteScanOptions) (string, error) {
+	if config.UserAPIKey == "" {
+		return "", errors.New("userApiKey is empty")
+	}
+	if config.Username == "" {
+		return "", errors.New("username is empty")
+	}
+	if config.ServiceKey == "" {
+		return "", errors.New("serviceKey is empty")
+	}
+	return base64.StdEncoding.EncodeToString([]byte(config.Username + ":" + config.ServiceKey)), nil
 }

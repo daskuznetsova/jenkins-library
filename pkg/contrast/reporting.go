@@ -2,7 +2,6 @@ package contrast
 
 import (
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 
 	"github.com/SAP/jenkins-library/pkg/log"
@@ -12,10 +11,9 @@ import (
 )
 
 type ContrastAudit struct {
-	ToolName            string             `json:"toolName"`
-	ApplicationUrl      string             `json:"applicationUrl"`
-	ApplicationVulnsUrl string             `json:"applicationVulnerabilitiesUrl"`
-	ScanResults         []ContrastFindings `json:"findings"`
+	ToolName       string             `json:"toolName"`
+	ApplicationUrl string             `json:"applicationUrl"`
+	ScanResults    []ContrastFindings `json:"findings"`
 }
 
 type ContrastFindings struct {
@@ -25,13 +23,9 @@ type ContrastFindings struct {
 }
 
 type ApplicationInfo struct {
-	ServerUrl      string
-	OrganizationId string
-	Id             string
-	Name           string
-	DisplayName    string
-	Path           string
-	ApplicationUrl string
+	Url  string
+	Id   string
+	Name string
 }
 
 func WriteJSONReport(jsonReport ContrastAudit, modulePath string) ([]piperutils.Path, error) {
@@ -69,33 +63,22 @@ func CreateAndPersistToolRecord(utils piperutils.FileUtils, appInfo *Application
 }
 
 func createToolRecordContrast(utils piperutils.FileUtils, appInfo *ApplicationInfo, modulePath string) (*toolrecord.Toolrecord, error) {
-	record := toolrecord.New(utils, modulePath, "contrast", appInfo.ServerUrl)
+	record := toolrecord.New(utils, modulePath, "contrast", appInfo.Url)
 
-	if appInfo.ServerUrl == "" {
+	if appInfo.Url == "" {
 		return record, errors.New("Contrast server is not set")
-	}
-	if appInfo.OrganizationId == "" {
-		return record, errors.New("Organization Id is not set")
 	}
 	if appInfo.Id == "" {
 		return record, errors.New("Application Id is not set")
 	}
 
-	record.DisplayName = appInfo.DisplayName
-	record.DisplayURL = appInfo.ApplicationUrl
+	record.DisplayName = appInfo.Name
+	record.DisplayURL = appInfo.Url
 
 	err := record.AddKeyData("application",
-		fmt.Sprintf("%s - %s", appInfo.OrganizationId, appInfo.Id),
-		fmt.Sprintf("organizatoin - %s application - %s", appInfo.OrganizationId, appInfo.Id),
-		appInfo.ApplicationUrl)
-	if err != nil {
-		return record, err
-	}
-
-	err = record.AddKeyData("scanResult",
-		fmt.Sprintf("%s - %s", appInfo.Id, appInfo.Name),
-		fmt.Sprintf("%s", appInfo.DisplayName),
-		fmt.Sprintf("%s/vulns", appInfo.ApplicationUrl))
+		appInfo.Id,
+		appInfo.Name,
+		appInfo.Url)
 	if err != nil {
 		return record, err
 	}
