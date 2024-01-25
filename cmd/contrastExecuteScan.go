@@ -54,7 +54,7 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	}
 
 	contrastInstance := contrast.NewContrastInstance(appAPIUrl, config.UserAPIKey, auth)
-	appInfo, err := contrastInstance.GetAppInfo(appUIUrl)
+	appInfo, err := contrastInstance.GetAppInfo(appUIUrl, config.Server)
 	if err != nil {
 		return
 	}

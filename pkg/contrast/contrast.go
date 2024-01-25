@@ -12,7 +12,7 @@ import (
 
 type Contrast interface {
 	GetVulnerabilities() error
-	GetAppInfo(appUIUrl string)
+	GetAppInfo(appUIUrl, server string)
 }
 
 type ContrastInstance struct {
@@ -119,7 +119,7 @@ func (contrast *ContrastInstance) GetVulnerabilities() ([]ContrastFindings, erro
 	return getVulnerabilitiesFromClient(client, url, 0)
 }
 
-func (contrast *ContrastInstance) GetAppInfo(appUIUrl string) (*ApplicationInfo, error) {
+func (contrast *ContrastInstance) GetAppInfo(appUIUrl, server string) (*ApplicationInfo, error) {
 	client := newContrastHTTPClient(contrast.apiKey, contrast.auth)
 	app, err := getApplicationFromClient(client, contrast.url)
 	if err != nil {
@@ -127,6 +127,7 @@ func (contrast *ContrastInstance) GetAppInfo(appUIUrl string) (*ApplicationInfo,
 		return nil, err
 	}
 	app.Url = appUIUrl
+	app.Server = server
 	return app, nil
 }
 

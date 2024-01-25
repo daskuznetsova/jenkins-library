@@ -23,9 +23,10 @@ type ContrastFindings struct {
 }
 
 type ApplicationInfo struct {
-	Url  string
-	Id   string
-	Name string
+	Url    string
+	Id     string
+	Name   string
+	Server string
 }
 
 func WriteJSONReport(jsonReport ContrastAudit, modulePath string) ([]piperutils.Path, error) {
@@ -63,14 +64,7 @@ func CreateAndPersistToolRecord(utils piperutils.FileUtils, appInfo *Application
 }
 
 func createToolRecordContrast(utils piperutils.FileUtils, appInfo *ApplicationInfo, modulePath string) (*toolrecord.Toolrecord, error) {
-	record := toolrecord.New(utils, modulePath, "contrast", appInfo.Url)
-
-	if appInfo.Url == "" {
-		return record, errors.New("Contrast server is not set")
-	}
-	if appInfo.Id == "" {
-		return record, errors.New("Application Id is not set")
-	}
+	record := toolrecord.New(utils, modulePath, "contrast", appInfo.Server)
 
 	record.DisplayName = appInfo.Name
 	record.DisplayURL = appInfo.Url
