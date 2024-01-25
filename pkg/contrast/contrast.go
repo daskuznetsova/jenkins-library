@@ -100,10 +100,15 @@ type ApplicationResponse struct {
 }
 
 const (
-	StatusFixed       = "Fixed"
-	StatusNotAProblem = "Not a problem"
+	StatusFixed       = "FIXED"
+	StatusNotAProblem = "NOT_A_PROBLEM"
+	StatusRemediated  = "REMEDIATED"
+	Critical          = "CRITICAL"
+	High              = "HIGH"
+	Medium            = "MEDIUM"
 	AuditAll          = "Audit All"
-	pageSize          = 10
+	Optional          = "Optional"
+	pageSize          = 200
 )
 
 func (contrast *ContrastInstance) GetVulnerabilities() ([]ContrastFindings, error) {
@@ -149,7 +154,6 @@ func getApplicationFromClient(client contrastHTTPClient, url string) (*Applicati
 }
 
 func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page int) ([]ContrastFindings, error) {
-	var auditedAll, totalAll int
 	params := map[string]string{
 		"page": fmt.Sprintf("%d", page),
 		"size": fmt.Sprintf("%d", pageSize),
@@ -176,12 +180,30 @@ func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page in
 		log.Entry().Debug("empty response")
 		return nil, nil
 	}
+	auditAllFindings := ContrastFindings{
+		ClassificationName: AuditAll,
+		Total:              0,
+		Audited:            0,
+	}
+	optionalFindings := ContrastFindings{
+		ClassificationName: Optional,
+		Total:              0,
+		Audited:            0,
+	}
 
 	for _, vuln := range vulnsResponse.Vulnerabilities {
-		if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem {
-			auditedAll += 1
+		if vuln.Severity == Critical || vuln.Severity == High || vuln.Severity == Medium {
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem || vuln.Status == StatusRemediated {
+				auditAllFindings.Audited += 1
+			}
+			auditAllFindings.Total += 1
+		} else {
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem || vuln.Status == StatusRemediated {
+				optionalFindings.Audited += 1
+			}
+			optionalFindings.Total += 1
 		}
-		totalAll += 1
+
 	}
 	if !vulnsResponse.Last {
 		contrastFindings, err := getVulnerabilitiesFromClient(client, url, page+1)
@@ -190,18 +212,17 @@ func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page in
 		}
 		for i, fr := range contrastFindings {
 			if fr.ClassificationName == AuditAll {
-				contrastFindings[i].Total += totalAll
-				contrastFindings[i].Audited += auditedAll
+				contrastFindings[i].Total += auditAllFindings.Total
+				contrastFindings[i].Audited += auditAllFindings.Audited
+			}
+			if fr.ClassificationName == Optional {
+				contrastFindings[i].Total += optionalFindings.Total
+				contrastFindings[i].Audited += optionalFindings.Audited
 			}
 		}
 		return contrastFindings, nil
 	}
-	auditAllFindings := ContrastFindings{
-		ClassificationName: AuditAll,
-		Total:              totalAll,
-		Audited:            auditedAll,
-	}
-	return []ContrastFindings{auditAllFindings}, nil
+	return []ContrastFindings{auditAllFindings, optionalFindings}, nil
 }
 
 type contrastHTTPClient interface {
