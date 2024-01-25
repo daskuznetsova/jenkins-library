@@ -100,15 +100,16 @@ type ApplicationResponse struct {
 }
 
 const (
-	StatusFixed       = "FIXED"
-	StatusNotAProblem = "NOT_A_PROBLEM"
-	StatusRemediated  = "REMEDIATED"
-	Critical          = "CRITICAL"
-	High              = "HIGH"
-	Medium            = "MEDIUM"
-	AuditAll          = "Audit All"
-	Optional          = "Optional"
-	pageSize          = 200
+	StatusFixed          = "FIXED"
+	StatusNotAProblem    = "NOT_A_PROBLEM"
+	StatusRemediated     = "REMEDIATED"
+	StatusAutoRemediated = "AUTO_REMEDIATED"
+	Critical             = "CRITICAL"
+	High                 = "HIGH"
+	Medium               = "MEDIUM"
+	AuditAll             = "Audit All"
+	Optional             = "Optional"
+	pageSize             = 100
 )
 
 func (contrast *ContrastInstance) GetVulnerabilities() ([]ContrastFindings, error) {
@@ -193,12 +194,14 @@ func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page in
 
 	for _, vuln := range vulnsResponse.Vulnerabilities {
 		if vuln.Severity == Critical || vuln.Severity == High || vuln.Severity == Medium {
-			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem || vuln.Status == StatusRemediated {
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem ||
+				vuln.Status == StatusRemediated || vuln.Status == StatusAutoRemediated {
 				auditAllFindings.Audited += 1
 			}
 			auditAllFindings.Total += 1
 		} else {
-			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem || vuln.Status == StatusRemediated {
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem ||
+				vuln.Status == StatusRemediated || vuln.Status == StatusAutoRemediated {
 				optionalFindings.Audited += 1
 			}
 			optionalFindings.Total += 1
