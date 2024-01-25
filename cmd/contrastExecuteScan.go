@@ -69,10 +69,9 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	}
 
 	contrastAudit := contrast.ContrastAudit{
-		ToolName: "contrast",
-		ApplicationUrl: fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
-			config.Server, config.OrganizationID, config.ApplicationID),
-		ScanResults: findings,
+		ToolName:       "contrast",
+		ApplicationUrl: appInfo.Url,
+		ScanResults:    findings,
 	}
 	paths, err := contrast.WriteJSONReport(contrastAudit, "./")
 	if err != nil {
@@ -117,7 +116,7 @@ func getApplicationUrls(config *contrastExecuteScanOptions) (string, string, err
 		config.Server = "https://" + config.Server
 	}
 
-	return fmt.Sprintf("https://%s/api/v4/organizations/%s/applications/%s",
+	return fmt.Sprintf("%s/api/v4/organizations/%s/applications/%s",
 			config.Server, config.OrganizationID, config.ApplicationID),
 		fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
 			config.Server, config.OrganizationID, config.ApplicationID), nil
