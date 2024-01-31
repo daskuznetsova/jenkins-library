@@ -10,7 +10,6 @@ import (
 	"github.com/SAP/jenkins-library/pkg/log"
 	"github.com/SAP/jenkins-library/pkg/piperutils"
 	"github.com/SAP/jenkins-library/pkg/telemetry"
-	"github.com/pkg/errors"
 )
 
 type contrastExecuteScanUtils interface {
@@ -44,28 +43,26 @@ func contrastExecuteScan(config contrastExecuteScanOptions, telemetryData *telem
 }
 
 func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *telemetry.CustomData, utils contrastExecuteScanUtils) (reports []piperutils.Path, err error) {
-	auth, err := getAuth(config)
+	err = validateConfigs(config)
 	if err != nil {
-		log.Entry().Errorf("error while encrypting auth token")
-		return
+		log.Entry().Errorf("config is invalid: %v", err)
+		return nil, err
 	}
-	appAPIUrl, appUIUrl, err := getApplicationUrls(config)
-	if err != nil {
-		log.Entry().Errorf("error while checking configs for getting app info")
-		return
-	}
+
+	auth := getAuth(config)
+	appAPIUrl, appUIUrl := getApplicationUrls(config)
 
 	contrastInstance := contrast.NewContrastInstance(appAPIUrl, config.UserAPIKey, auth)
 	appInfo, err := contrastInstance.GetAppInfo(appUIUrl, config.Server)
 	if err != nil {
 		log.Entry().Errorf("error while getting app info")
-		return
+		return nil, err
 	}
 
 	findings, err := contrastInstance.GetVulnerabilities()
 	if err != nil {
 		log.Entry().Errorf("error while getting vulns")
-		return
+		return nil, err
 	}
 	log.Entry().Debugf("Contrast Findings:")
 	for _, f := range findings {
@@ -80,7 +77,7 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 	paths, err := contrast.WriteJSONReport(contrastAudit, "./")
 	if err != nil {
 		log.Entry().Errorf("error while writing json report")
-		return
+		return nil, err
 	}
 	reports = append(reports, paths...)
 
@@ -91,7 +88,7 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 				if unaudited > config.VulnerabilityThresholdTotal {
 					msg := fmt.Sprintf("Your application %v in organization %v is not compliant. Total unaudited issues are %v which is greater than the VulnerabilityThresholdTotal count %v",
 						config.ApplicationID, config.OrganizationID, unaudited, config.VulnerabilityThresholdTotal)
-					return reports, errors.Errorf(msg)
+					return reports, fmt.Errorf(msg)
 				}
 			}
 		}
@@ -104,38 +101,39 @@ func runContrastExecuteScan(config *contrastExecuteScanOptions, telemetryData *t
 		reports = append(reports, piperutils.Path{Target: toolRecordFileName})
 	}
 
-	return
+	return reports, nil
 }
 
-func getApplicationUrls(config *contrastExecuteScanOptions) (string, string, error) {
-	if config.Server == "" {
-		return "", "", errors.New("server is empty")
+func validateConfigs(config *contrastExecuteScanOptions) error {
+	validations := map[string]string{
+		"server":         config.Server,
+		"organizationId": config.OrganizationID,
+		"applicationId":  config.ApplicationID,
+		"userApiKey":     config.UserAPIKey,
+		"username":       config.Username,
+		"serviceKey":     config.ServiceKey,
 	}
-	if config.OrganizationID == "" {
-		return "", "", errors.New("organizationId is empty")
+
+	for k, v := range validations {
+		if v == "" {
+			return fmt.Errorf("%s is empty", k)
+		}
 	}
-	if config.ApplicationID == "" {
-		return "", "", errors.New("applicationId is empty")
-	}
+
 	if !strings.HasPrefix(config.Server, "https://") {
 		config.Server = "https://" + config.Server
 	}
 
-	return fmt.Sprintf("%s/api/v4/organizations/%s/applications/%s",
-			config.Server, config.OrganizationID, config.ApplicationID),
-		fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s",
-			config.Server, config.OrganizationID, config.ApplicationID), nil
+	return nil
 }
 
-func getAuth(config *contrastExecuteScanOptions) (string, error) {
-	if config.UserAPIKey == "" {
-		return "", errors.New("userApiKey is empty")
-	}
-	if config.Username == "" {
-		return "", errors.New("username is empty")
-	}
-	if config.ServiceKey == "" {
-		return "", errors.New("serviceKey is empty")
-	}
-	return base64.StdEncoding.EncodeToString([]byte(config.Username + ":" + config.ServiceKey)), nil
+func getApplicationUrls(config *contrastExecuteScanOptions) (string, string) {
+	appURL := fmt.Sprintf("%s/api/v4/organizations/%s/applications/%s", config.Server, config.OrganizationID, config.ApplicationID)
+	guiURL := fmt.Sprintf("%s/Contrast/static/ng/index.html#/%s/applications/%s", config.Server, config.OrganizationID, config.ApplicationID)
+
+	return appURL, guiURL
+}
+
+func getAuth(config *contrastExecuteScanOptions) string {
+	return base64.StdEncoding.EncodeToString([]byte(config.Username + ":" + config.ServiceKey))
 }

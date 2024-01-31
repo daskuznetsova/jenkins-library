@@ -182,33 +182,9 @@ func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page in
 		log.Entry().Debug("empty response")
 		return nil, nil
 	}
-	auditAllFindings := ContrastFindings{
-		ClassificationName: AuditAll,
-		Total:              0,
-		Audited:            0,
-	}
-	optionalFindings := ContrastFindings{
-		ClassificationName: Optional,
-		Total:              0,
-		Audited:            0,
-	}
 
-	for _, vuln := range vulnsResponse.Vulnerabilities {
-		if vuln.Severity == Critical || vuln.Severity == High || vuln.Severity == Medium {
-			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem ||
-				vuln.Status == StatusRemediated || vuln.Status == StatusAutoRemediated {
-				auditAllFindings.Audited += 1
-			}
-			auditAllFindings.Total += 1
-		} else {
-			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem ||
-				vuln.Status == StatusRemediated || vuln.Status == StatusAutoRemediated {
-				optionalFindings.Audited += 1
-			}
-			optionalFindings.Total += 1
-		}
+	auditAllFindings, optionalFindings := updateFindings(vulnsResponse.Vulnerabilities)
 
-	}
 	if !vulnsResponse.Last {
 		contrastFindings, err := getVulnerabilitiesFromClient(client, url, page+1)
 		if err != nil {
@@ -227,6 +203,36 @@ func getVulnerabilitiesFromClient(client contrastHTTPClient, url string, page in
 		return contrastFindings, nil
 	}
 	return []ContrastFindings{auditAllFindings, optionalFindings}, nil
+}
+
+func updateFindings(vulnerabilities []Vuln) (ContrastFindings, ContrastFindings) {
+	auditAllFindings := ContrastFindings{
+		ClassificationName: AuditAll,
+		Total:              0,
+		Audited:            0,
+	}
+	optionalFindings := ContrastFindings{
+		ClassificationName: Optional,
+		Total:              0,
+		Audited:            0,
+	}
+
+	for _, vuln := range vulnerabilities {
+		if vuln.Severity == Critical || vuln.Severity == High || vuln.Severity == Medium {
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem ||
+				vuln.Status == StatusRemediated || vuln.Status == StatusAutoRemediated {
+				auditAllFindings.Audited += 1
+			}
+			auditAllFindings.Total += 1
+		} else {
+			if vuln.Status == StatusFixed || vuln.Status == StatusNotAProblem ||
+				vuln.Status == StatusRemediated || vuln.Status == StatusAutoRemediated {
+				optionalFindings.Audited += 1
+			}
+			optionalFindings.Total += 1
+		}
+	}
+	return auditAllFindings, optionalFindings
 }
 
 type contrastHTTPClient interface {
