@@ -24,29 +24,20 @@ func TestCreateToolRecordContrast(t *testing.T) {
 
 	t.Run("Valid toolrun file", func(t *testing.T) {
 		appInfo := &ApplicationInfo{
-			Url:            "https://contrastsecurity.com",
-			OrganizationId: "organization-id",
-			Id:             "application-id",
-			Name:           "app name",
-			DisplayName:    "application name",
-			Path:           "/",
+			Url:  "https://contrastsecurity.com",
+			Id:   "application-id",
+			Name: "app name",
 		}
 		toolRecord, err := createToolRecordContrast(newContrastExecuteScanTestsUtils(), appInfo, modulePath)
 		assert.NoError(t, err)
-		assert.Equal(t, toolRecord.ToolName, "contrast")
-		assert.Equal(t, toolRecord.ToolInstance, appInfo.Url)
-		assert.Equal(t, toolRecord.DisplayName, appInfo.DisplayName)
-		assert.Equal(t, toolRecord.DisplayURL, appInfo.ApplicationUrl)
+		assert.Equal(t, "contrast", toolRecord.ToolName)
+		assert.Equal(t, appInfo.Url, toolRecord.ToolInstance)
 	})
 
 	t.Run("Empty server", func(t *testing.T) {
 		appInfo := &ApplicationInfo{
-			OrganizationId: "organization-id",
-			Id:             "application-id",
-			Name:           "app name",
-			DisplayName:    "application name",
-			Path:           "/",
-			ApplicationUrl: "",
+			Id:   "application-id",
+			Name: "app name",
 		}
 		_, err := createToolRecordContrast(newContrastExecuteScanTestsUtils(), appInfo, modulePath)
 		assert.Error(t, err)
@@ -55,12 +46,9 @@ func TestCreateToolRecordContrast(t *testing.T) {
 
 	t.Run("Empty organization id", func(t *testing.T) {
 		appInfo := &ApplicationInfo{
-			Url:            "https://contrastsecurity.com",
-			Id:             "application-id",
-			Name:           "app name",
-			DisplayName:    "application name",
-			Path:           "/",
-			ApplicationUrl: "",
+			Url:  "https://contrastsecurity.com",
+			Id:   "application-id",
+			Name: "app name",
 		}
 		_, err := createToolRecordContrast(newContrastExecuteScanTestsUtils(), appInfo, modulePath)
 		assert.Error(t, err)
@@ -69,12 +57,8 @@ func TestCreateToolRecordContrast(t *testing.T) {
 
 	t.Run("Empty application id", func(t *testing.T) {
 		appInfo := &ApplicationInfo{
-			Url:            "https://contrastsecurity.com",
-			OrganizationId: "organization-id",
-			Name:           "app name",
-			DisplayName:    "application name",
-			Path:           "/",
-			ApplicationUrl: "",
+			Url:  "https://contrastsecurity.com",
+			Name: "app name",
 		}
 		_, err := createToolRecordContrast(newContrastExecuteScanTestsUtils(), appInfo, modulePath)
 		assert.Error(t, err)
