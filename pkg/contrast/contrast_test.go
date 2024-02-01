@@ -144,18 +144,95 @@ func TestGetVulnerabilitiesFromClient(t *testing.T) {
 
 func TestGetFindings(t *testing.T) {
 	t.Parallel()
-	t.Run("Audit All", func(t *testing.T) {
+	t.Run("Critical severity", func(t *testing.T) {
 		vulns := []Vulnerability{
-			{
-				Severity: "CRITICAL",
-				Status:   "REPORTED",
-			},
+			{Severity: "CRITICAL", Status: "FIXED"},
+			{Severity: "CRITICAL", Status: "REMEDIATED"},
+			{Severity: "CRITICAL", Status: "REPORTED"},
+			{Severity: "CRITICAL", Status: "CONFIRMED"},
+			{Severity: "CRITICAL", Status: "NOT_A_PROBLEM"},
+			{Severity: "CRITICAL", Status: "SUSPICIOUS"},
 		}
 		auditAll, optional := getFindings(vulns)
-		assert.Equal(t, 1, auditAll.Total)
-		assert.Equal(t, 0, auditAll.Audited)
+		assert.Equal(t, 6, auditAll.Total)
+		assert.Equal(t, 3, auditAll.Audited)
 		assert.Equal(t, 0, optional.Total)
 		assert.Equal(t, 0, optional.Audited)
+	})
+	t.Run("High severity", func(t *testing.T) {
+		vulns := []Vulnerability{
+			{Severity: "HIGH", Status: "FIXED"},
+			{Severity: "HIGH", Status: "REMEDIATED"},
+			{Severity: "HIGH", Status: "REPORTED"},
+			{Severity: "HIGH", Status: "CONFIRMED"},
+			{Severity: "HIGH", Status: "NOT_A_PROBLEM"},
+			{Severity: "HIGH", Status: "SUSPICIOUS"},
+		}
+		auditAll, optional := getFindings(vulns)
+		assert.Equal(t, 6, auditAll.Total)
+		assert.Equal(t, 3, auditAll.Audited)
+		assert.Equal(t, 0, optional.Total)
+		assert.Equal(t, 0, optional.Audited)
+	})
+	t.Run("Medium severity", func(t *testing.T) {
+		vulns := []Vulnerability{
+			{Severity: "MEDIUM", Status: "FIXED"},
+			{Severity: "MEDIUM", Status: "REMEDIATED"},
+			{Severity: "MEDIUM", Status: "REPORTED"},
+			{Severity: "MEDIUM", Status: "CONFIRMED"},
+			{Severity: "MEDIUM", Status: "NOT_A_PROBLEM"},
+			{Severity: "MEDIUM", Status: "SUSPICIOUS"},
+		}
+		auditAll, optional := getFindings(vulns)
+		assert.Equal(t, 6, auditAll.Total)
+		assert.Equal(t, 3, auditAll.Audited)
+		assert.Equal(t, 0, optional.Total)
+		assert.Equal(t, 0, optional.Audited)
+	})
+	t.Run("Low severity", func(t *testing.T) {
+		vulns := []Vulnerability{
+			{Severity: "LOW", Status: "FIXED"},
+			{Severity: "LOW", Status: "REMEDIATED"},
+			{Severity: "LOW", Status: "REPORTED"},
+			{Severity: "LOW", Status: "CONFIRMED"},
+			{Severity: "LOW", Status: "NOT_A_PROBLEM"},
+			{Severity: "LOW", Status: "SUSPICIOUS"},
+		}
+		auditAll, optional := getFindings(vulns)
+		assert.Equal(t, 0, auditAll.Total)
+		assert.Equal(t, 0, auditAll.Audited)
+		assert.Equal(t, 6, optional.Total)
+		assert.Equal(t, 3, optional.Audited)
+	})
+	t.Run("Note severity", func(t *testing.T) {
+		vulns := []Vulnerability{
+			{Severity: "NOTE", Status: "FIXED"},
+			{Severity: "NOTE", Status: "REMEDIATED"},
+			{Severity: "NOTE", Status: "REPORTED"},
+			{Severity: "NOTE", Status: "CONFIRMED"},
+			{Severity: "NOTE", Status: "NOT_A_PROBLEM"},
+			{Severity: "NOTE", Status: "SUSPICIOUS"},
+		}
+		auditAll, optional := getFindings(vulns)
+		assert.Equal(t, 0, auditAll.Total)
+		assert.Equal(t, 0, auditAll.Audited)
+		assert.Equal(t, 6, optional.Total)
+		assert.Equal(t, 3, optional.Audited)
+	})
+
+	t.Run("Mixed severity", func(t *testing.T) {
+		vulns := []Vulnerability{
+			{Severity: "CRITICAL", Status: "FIXED"},
+			{Severity: "HIGH", Status: "REMEDIATED"},
+			{Severity: "MEDIUM", Status: "REPORTED"},
+			{Severity: "LOW", Status: "CONFIRMED"},
+			{Severity: "NOTE", Status: "NOT_A_PROBLEM"},
+		}
+		auditAll, optional := getFindings(vulns)
+		assert.Equal(t, 3, auditAll.Total)
+		assert.Equal(t, 2, auditAll.Audited)
+		assert.Equal(t, 2, optional.Total)
+		assert.Equal(t, 1, optional.Audited)
 	})
 }
 
@@ -175,5 +252,87 @@ func TestIsVulnerabilityResolved(t *testing.T) {
 }
 
 func TestAccumulateFindings(t *testing.T) {
-
+	t.Parallel()
+	t.Run("Add Audit All to empty findings", func(t *testing.T) {
+		findings := []ContrastFindings{
+			{ClassificationName: AuditAll},
+			{ClassificationName: Optional},
+		}
+		auditAll := ContrastFindings{
+			ClassificationName: AuditAll,
+			Total:              100,
+			Audited:            50,
+		}
+		accumulateFindings(auditAll, ContrastFindings{}, findings)
+		assert.Equal(t, 100, findings[0].Total)
+		assert.Equal(t, 50, findings[0].Audited)
+		assert.Equal(t, 0, findings[1].Total)
+		assert.Equal(t, 0, findings[1].Audited)
+	})
+	t.Run("Add Optional to empty findings", func(t *testing.T) {
+		findings := []ContrastFindings{
+			{ClassificationName: AuditAll},
+			{ClassificationName: Optional},
+		}
+		optional := ContrastFindings{
+			ClassificationName: Optional,
+			Total:              100,
+			Audited:            50,
+		}
+		accumulateFindings(ContrastFindings{}, optional, findings)
+		assert.Equal(t, 100, findings[1].Total)
+		assert.Equal(t, 50, findings[1].Audited)
+		assert.Equal(t, 0, findings[0].Total)
+		assert.Equal(t, 0, findings[0].Audited)
+	})
+	t.Run("Add all to empty findings", func(t *testing.T) {
+		findings := []ContrastFindings{
+			{ClassificationName: AuditAll},
+			{ClassificationName: Optional},
+		}
+		auditAll := ContrastFindings{
+			ClassificationName: AuditAll,
+			Total:              10,
+			Audited:            5,
+		}
+		optional := ContrastFindings{
+			ClassificationName: Optional,
+			Total:              100,
+			Audited:            50,
+		}
+		accumulateFindings(auditAll, optional, findings)
+		assert.Equal(t, 10, findings[0].Total)
+		assert.Equal(t, 5, findings[0].Audited)
+		assert.Equal(t, 100, findings[1].Total)
+		assert.Equal(t, 50, findings[1].Audited)
+	})
+	t.Run("Add to non-empty findings", func(t *testing.T) {
+		findings := []ContrastFindings{
+			{
+				ClassificationName: AuditAll,
+				Total:              100,
+				Audited:            50,
+			},
+			{
+				ClassificationName: Optional,
+				Total:              100,
+				Audited:            50,
+			},
+		}
+		auditAll := ContrastFindings{
+			ClassificationName: AuditAll,
+			Total:              10,
+			Audited:            5,
+		}
+		optional := ContrastFindings{
+			ClassificationName: Optional,
+			Total:              100,
+			Audited:            50,
+		}
+		accumulateFindings(auditAll, optional, findings)
+		assert.Equal(t, 110, findings[0].Total)
+		assert.Equal(t, 55, findings[0].Audited)
+		assert.Equal(t, 200, findings[1].Total)
+		assert.Equal(t, 100, findings[1].Audited)
+	})
 }
