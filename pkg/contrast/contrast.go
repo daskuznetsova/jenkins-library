@@ -21,29 +21,18 @@ const (
 )
 
 type VulnerabilitiesResponse struct {
-	Size             int             `json:"size"`
-	TotalElements    int             `json:"totalElements"`
-	TotalPages       int             `json:"totalPages"`
-	Empty            bool            `json:"empty"`
-	First            bool            `json:"first"`
-	Last             bool            `json:"last"`
-	Number           int             `json:"number"`
-	NumberOfElements int             `json:"numberOfElements"`
-	Pageable         Pageable        `json:"pageable"`
-	Vulnerabilities  []Vulnerability `json:"content"`
+	Size            int             `json:"size"`
+	TotalElements   int             `json:"totalElements"`
+	TotalPages      int             `json:"totalPages"`
+	Empty           bool            `json:"empty"`
+	First           bool            `json:"first"`
+	Last            bool            `json:"last"`
+	Vulnerabilities []Vulnerability `json:"content"`
 }
 
 type Vulnerability struct {
 	Severity string `json:"severity"`
 	Status   string `json:"status"`
-}
-
-type Pageable struct {
-	PageNumber int  `json:"pageNumber"`
-	PageSize   int  `json:"pageSize"`
-	Paged      bool `json:"paged"`
-	Unpaged    bool `json:"unpaged"`
-	Offset     int  `json:"offset"`
 }
 
 type ApplicationResponse struct {
