@@ -81,6 +81,13 @@ spec:
           - STAGES
           - STEPS
         default: "./"
+      - name: sourceRoot
+        type: string
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        default: "./"
       - name: database
         type: string
         description: "Path to the CodeQL database to create. This directory will be created, and must not already exist."

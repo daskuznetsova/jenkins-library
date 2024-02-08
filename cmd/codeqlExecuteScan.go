@@ -275,7 +275,7 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	}
 
 	var reports []piperutils.Path
-	cmd := []string{"database", "create", config.Database, "--overwrite", "--source-root", ".", "--working-dir", config.ModulePath}
+	cmd := []string{"database", "create", config.Database, "--overwrite", "--source-root", config.SourceRoot, "--working-dir", config.ModulePath}
 
 	language := getLangFromBuildTool(config.BuildTool)
 
