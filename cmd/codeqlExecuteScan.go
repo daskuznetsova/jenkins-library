@@ -323,7 +323,7 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 			cmd = append(cmd, "--include="+config.Include)
 		}
 
-		cmd = append(cmd, fmt.Sprintf("-- %s", config.Database))
+		cmd = append(cmd, "--database="+config.Database)
 
 		err = execute(utils, cmd, false)
 		if err != nil {
