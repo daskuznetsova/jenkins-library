@@ -300,7 +300,9 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		cmd = append(cmd, "--command="+buildCmd)
 	}
 
-	err = execute(utils, cmd, GeneralConfig.Verbose)
+	cmd = append(cmd, fmt.Sprintf("-- %s", config.Database))
+
+	err = execute(utils, cmd, false)
 	if err != nil {
 		log.Entry().Error("failed running command codeql database create")
 		return reports, err
