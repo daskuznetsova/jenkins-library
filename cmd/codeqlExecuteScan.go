@@ -322,6 +322,12 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		if len(config.Include) > 0 {
 			cmd = append(cmd, "--include="+config.Include)
 		}
+
+		err = execute(utils, cmd, GeneralConfig.Verbose)
+		if err != nil {
+			log.Entry().Error("failed running command codeql database index-files")
+			return reports, err
+		}
 	}
 
 	err = os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm)
@@ -329,6 +335,7 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		return reports, fmt.Errorf("failed to create directory: %w", err)
 	}
 
+	cmd = nil
 	cmd = append(cmd, "database", "analyze", "--format=sarif-latest", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
 	cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
 	cmd = codeqlQuery(cmd, config.QuerySuite)
