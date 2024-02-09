@@ -306,12 +306,29 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		return reports, err
 	}
 
+	cmd = nil
+
+	if len(config.Exclude) > 0 || len(config.Include) > 0 {
+		cmd = append(cmd, "database", "index-files")
+		if len(language) > 0 {
+			cmd = append(cmd, "--language="+language)
+		} else {
+			cmd = append(cmd, "--language="+config.Language)
+		}
+		cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
+		if len(config.Exclude) > 0 {
+			cmd = append(cmd, "--exclude="+config.Exclude)
+		}
+		if len(config.Include) > 0 {
+			cmd = append(cmd, "--include="+config.Include)
+		}
+	}
+
 	err = os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm)
 	if err != nil {
 		return reports, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	cmd = nil
 	cmd = append(cmd, "database", "analyze", "--format=sarif-latest", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
 	cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
 	cmd = codeqlQuery(cmd, config.QuerySuite)
