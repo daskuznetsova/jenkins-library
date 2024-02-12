@@ -300,36 +300,14 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		cmd = append(cmd, "--command="+buildCmd)
 	}
 
+	if len(config.CustomConfig) > 0 {
+		cmd = append(cmd, "--codescanning-config="+config.CustomConfig)
+	}
+
 	err = execute(utils, cmd, GeneralConfig.Verbose)
 	if err != nil {
 		log.Entry().Error("failed running command codeql database create")
 		return reports, err
-	}
-
-	cmd = nil
-
-	if len(config.Exclude) > 0 || len(config.Include) > 0 {
-		cmd = append(cmd, "database", "index-files")
-		if len(language) > 0 {
-			cmd = append(cmd, "--language="+language)
-		} else {
-			cmd = append(cmd, "--language="+config.Language)
-		}
-		cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
-		if len(config.Exclude) > 0 {
-			cmd = append(cmd, "--exclude="+config.Exclude)
-		}
-		if len(config.Include) > 0 {
-			cmd = append(cmd, "--include="+config.Include)
-		}
-
-		cmd = append(cmd, config.Database)
-
-		err = execute(utils, cmd, false)
-		if err != nil {
-			log.Entry().Error("failed running command codeql database index-files")
-			return reports, err
-		}
 	}
 
 	err = os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm)

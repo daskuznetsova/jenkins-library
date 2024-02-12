@@ -88,13 +88,7 @@ spec:
           - STAGES
           - STEPS
         default: "./"
-      - name: exclude
-        type: string
-        scope:
-          - PARAMETERS
-          - STAGES
-          - STEPS
-      - name: include
+      - name: customConfig
         type: string
         scope:
           - PARAMETERS

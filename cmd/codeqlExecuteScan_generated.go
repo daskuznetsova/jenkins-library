@@ -28,8 +28,7 @@ type codeqlExecuteScanOptions struct {
 	Language                    string `json:"language,omitempty"`
 	ModulePath                  string `json:"modulePath,omitempty"`
 	SourceRoot                  string `json:"sourceRoot,omitempty"`
-	Exclude                     string `json:"exclude,omitempty"`
-	Include                     string `json:"include,omitempty"`
+	CustomConfig                string `json:"customConfig,omitempty"`
 	Database                    string `json:"database,omitempty"`
 	QuerySuite                  string `json:"querySuite,omitempty"`
 	UploadResults               bool   `json:"uploadResults,omitempty"`
@@ -255,8 +254,7 @@ func addCodeqlExecuteScanFlags(cmd *cobra.Command, stepConfig *codeqlExecuteScan
 	cmd.Flags().StringVar(&stepConfig.Language, "language", os.Getenv("PIPER_language"), "The programming language used to analyze.")
 	cmd.Flags().StringVar(&stepConfig.ModulePath, "modulePath", `./`, "Allows providing the path for the module to scan")
 	cmd.Flags().StringVar(&stepConfig.SourceRoot, "sourceRoot", `./`, "")
-	cmd.Flags().StringVar(&stepConfig.Exclude, "exclude", os.Getenv("PIPER_exclude"), "")
-	cmd.Flags().StringVar(&stepConfig.Include, "include", os.Getenv("PIPER_include"), "")
+	cmd.Flags().StringVar(&stepConfig.CustomConfig, "customConfig", os.Getenv("PIPER_customConfig"), "")
 	cmd.Flags().StringVar(&stepConfig.Database, "database", `codeqlDB`, "Path to the CodeQL database to create. This directory will be created, and must not already exist.")
 	cmd.Flags().StringVar(&stepConfig.QuerySuite, "querySuite", os.Getenv("PIPER_querySuite"), "The name of a CodeQL query suite. If omitted, the default query suite for the language of the database being analyzed will be used.")
 	cmd.Flags().BoolVar(&stepConfig.UploadResults, "uploadResults", false, "Allows you to upload codeql SARIF results to your github project. You will need to set githubToken for this.")
@@ -362,22 +360,13 @@ func codeqlExecuteScanMetadata() config.StepData {
 						Default:     `./`,
 					},
 					{
-						Name:        "exclude",
+						Name:        "customConfig",
 						ResourceRef: []config.ResourceReference{},
 						Scope:       []string{"PARAMETERS", "STAGES", "STEPS"},
 						Type:        "string",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     os.Getenv("PIPER_exclude"),
-					},
-					{
-						Name:        "include",
-						ResourceRef: []config.ResourceReference{},
-						Scope:       []string{"PARAMETERS", "STAGES", "STEPS"},
-						Type:        "string",
-						Mandatory:   false,
-						Aliases:     []config.Alias{},
-						Default:     os.Getenv("PIPER_include"),
+						Default:     os.Getenv("PIPER_customConfig"),
 					},
 					{
 						Name:        "database",
