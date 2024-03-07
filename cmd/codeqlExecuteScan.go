@@ -40,6 +40,10 @@ const (
 	sarifUploadFailed   = "failed"
 )
 
+var availableFlags = map[string]bool{
+	"ram": true,
+}
+
 func newCodeqlExecuteScanUtils() codeqlExecuteScanUtils {
 	utils := codeqlExecuteScanUtilsBundle{
 		Command: &command.Command{},
@@ -300,6 +304,14 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		cmd = append(cmd, "--command="+buildCmd)
 	}
 
+	additionalFlags, err := validateFlags(config.AdditionalFlags, databaseCreateFlags)
+	if err != nil {
+		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		return reports, err
+	}
+
+	cmd = append(cmd, additionalFlags...)
+
 	err = execute(utils, cmd, GeneralConfig.Verbose)
 	if err != nil {
 		log.Entry().Error("failed running command codeql database create")
@@ -314,6 +326,14 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	cmd = nil
 	cmd = append(cmd, "database", "analyze", "--format=sarif-latest", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
 	cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
+
+	additionalFlags, err = validateFlags(config.AdditionalFlags, databaseCreateFlags)
+	if err != nil {
+		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		return reports, err
+	}
+	cmd = append(cmd, additionalFlags...)
+
 	cmd = codeqlQuery(cmd, config.QuerySuite)
 	err = execute(utils, cmd, GeneralConfig.Verbose)
 	if err != nil {
@@ -454,6 +474,84 @@ func getRamAndThreadsFromConfig(config *codeqlExecuteScanOptions) []string {
 		params = append(params, "--ram="+config.Ram)
 	}
 	return params
+}
+
+var databaseCreateFlags = map[string]bool{
+	"--no-db-cluster": true,
+	"--db-cluster":    true,
+	"--source-root":   true,
+	"-s":              true,
+	//"--github-url":              true,
+	//"-g":                        true,
+	"--mode":                    true,
+	"-m":                        true,
+	"--cleanup-upgrade-backups": true,
+	"--extractor-option":        true,
+	"-O":                        true,
+	"--extractor-options-file":  true,
+	"--registries-auth-stdin":   true,
+	"--github-auth-stdin":       true,
+	//"-j, --threads":           true,
+	//"-M, --ram":               true,
+	"--search-path":    true,
+	"--max-disk-cache": true,
+}
+
+var databaseAnalyzeFlags = map[string]bool{
+	"--format":                       true,
+	"--output":                       true,
+	"-o":                             true,
+	"--no-rerun":                     true,
+	"--rerun":                        true,
+	"--no-print-diagnostics-summary": true,
+	"--no-print-metrics-summary":     true,
+	"--sarif-add-file-contents":      true,
+	"--sarif-add-snippets":           true,
+	"--sarif-add-query-help":         true,
+	"--sarif-group-rules-by-pack":    true,
+	"--sarif-multicause-markdown":    true,
+	"--no-sarif-add-file-contents":   true,
+	"--no-sarif-add-snippets":        true,
+	"--no-sarif-add-query-help":      true,
+	"--no-sarif-group-rules-by-pack": true,
+	"--no-sarif-multicause-markdown": true,
+	"--no-group-results":             true,
+	"--csv-location-format":          true,
+	"--dot-location-url-format":      true,
+	"--sarif-category":               true,
+	"--no-download":                  true,
+	"--download":                     true,
+	"--external":                     true,
+	"--warnings":                     true,
+	"--no-debug-info":                true,
+	"--no-fast-compilation":          true,
+	"--no-local-checking":            true,
+	"--fast-compilation":             true,
+	"--local-checking":               true,
+	"--no-metadata-verification":     true,
+	"--additional-packs":             true,
+	"--registries-auth-stdin":        true,
+	"--github-auth-stdin":            true,
+	//"-j, --threads":           true,
+	//"-M, --ram":               true,
+	"--search-path":    true,
+	"--max-disk-cache": true,
+}
+
+func validateFlags(input string, validFlags map[string]bool) ([]string, error) {
+	flagPairs := strings.Split(input, " ")
+	params := []string{}
+
+	for _, pair := range flagPairs {
+		flagValuePair := strings.Split(pair, "=")
+		flag := flagValuePair[0]
+
+		if _, exists := validFlags[flag]; exists {
+			params = append(params, pair)
+		}
+	}
+
+	return params, nil
 }
 
 func getMavenSettings(config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) string {
