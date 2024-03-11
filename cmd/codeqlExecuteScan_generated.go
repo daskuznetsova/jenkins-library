@@ -43,7 +43,8 @@ type codeqlExecuteScanOptions struct {
 	CheckForCompliance          bool   `json:"checkForCompliance,omitempty"`
 	ProjectSettingsFile         string `json:"projectSettingsFile,omitempty"`
 	GlobalSettingsFile          string `json:"globalSettingsFile,omitempty"`
-	AdditionalFlags             string `json:"additionalFlags,omitempty"`
+	DatabaseCreateFlags         string `json:"databaseCreateFlags,omitempty"`
+	DatabaseAnalyzeFlags        string `json:"databaseAnalyzeFlags,omitempty"`
 }
 
 type codeqlExecuteScanInflux struct {
@@ -268,7 +269,8 @@ func addCodeqlExecuteScanFlags(cmd *cobra.Command, stepConfig *codeqlExecuteScan
 	cmd.Flags().BoolVar(&stepConfig.CheckForCompliance, "checkForCompliance", false, "If set to true, the piper step checks for compliance based on vulnerability threadholds. Example - If total vulnerabilites are 10 and vulnerabilityThresholdTotal is set as 0, then the steps throws an compliance error.")
 	cmd.Flags().StringVar(&stepConfig.ProjectSettingsFile, "projectSettingsFile", os.Getenv("PIPER_projectSettingsFile"), "Path to the mvn settings file that should be used as project settings file.")
 	cmd.Flags().StringVar(&stepConfig.GlobalSettingsFile, "globalSettingsFile", os.Getenv("PIPER_globalSettingsFile"), "Path to the mvn settings file that should be used as global settings file.")
-	cmd.Flags().StringVar(&stepConfig.AdditionalFlags, "additionalFlags", os.Getenv("PIPER_additionalFlags"), "Set flags to use for database create and analyze commands. The format of input - \"--<flag>=<value> --<flag>=<value>\"")
+	cmd.Flags().StringVar(&stepConfig.DatabaseCreateFlags, "databaseCreateFlags", os.Getenv("PIPER_databaseCreateFlags"), "Flags for command 'codeql database create' separated by ' '.")
+	cmd.Flags().StringVar(&stepConfig.DatabaseAnalyzeFlags, "databaseAnalyzeFlags", os.Getenv("PIPER_databaseAnalyzeFlags"), "Flags for command 'codeql database analyze' separated by ' '.")
 
 	cmd.MarkFlagRequired("buildTool")
 }
@@ -508,13 +510,22 @@ func codeqlExecuteScanMetadata() config.StepData {
 						Default:     os.Getenv("PIPER_globalSettingsFile"),
 					},
 					{
-						Name:        "additionalFlags",
+						Name:        "databaseCreateFlags",
 						ResourceRef: []config.ResourceReference{},
-						Scope:       []string{"GENERAL", "STEPS", "STAGES", "PARAMETERS"},
+						Scope:       []string{"STEPS", "STAGES", "PARAMETERS"},
 						Type:        "string",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     os.Getenv("PIPER_additionalFlags"),
+						Default:     os.Getenv("PIPER_databaseCreateFlags"),
+					},
+					{
+						Name:        "databaseAnalyzeFlags",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"STEPS", "STAGES", "PARAMETERS"},
+						Type:        "string",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     os.Getenv("PIPER_databaseAnalyzeFlags"),
 					},
 				},
 			},

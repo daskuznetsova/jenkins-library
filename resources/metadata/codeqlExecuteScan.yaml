@@ -209,14 +209,28 @@ spec:
           - PARAMETERS
         aliases:
           - name: maven/globalSettingsFile
-      - name: additionalFlags
+      - name: databaseCreateFlags
         type: string
-        description: Set flags to use for database create and analyze commands. The format of input - "--<flag>=<value> --<flag>=<value>"
+        description: Flags for command 'codeql database create' separated by ' '.
         scope:
-          - GENERAL
           - STEPS
           - STAGES
           - PARAMETERS
+      - name: databaseAnalyzeFlags
+        type: string
+        description: Flags for command 'codeql database analyze' separated by ' '.
+        scope:
+          - STEPS
+          - STAGES
+          - PARAMETERS
+#      - name: additionalFlags
+#        type: string
+#        description: Set flags to use for database create and analyze commands. The format of input - "--<flag>=<value> --<flag>=<value>"
+#        scope:
+#          - GENERAL
+#          - STEPS
+#          - STAGES
+#          - PARAMETERS
   containers:
     - image: ""
   outputs:

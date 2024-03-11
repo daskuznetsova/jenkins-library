@@ -270,6 +270,127 @@ func waitSarifUploaded(config *codeqlExecuteScanOptions, codeqlSarifUploader cod
 	}
 }
 
+func getRamAndThreadsFromConfig(config *codeqlExecuteScanOptions, customFlags map[string]bool) []string {
+	params := make([]string, 0, 2)
+	if len(config.Threads) > 0 && !checkFlags(customFlags, []string{"--threads", "-j"}) {
+		params = append(params, "--threads="+config.Threads)
+	}
+	if len(config.Ram) > 0 && !checkFlags(customFlags, []string{"--ram", "-M"}) {
+		params = append(params, "--ram="+config.Ram)
+	}
+	return params
+}
+
+var databaseCreateFlags = map[string]bool{
+	"--no-db-cluster":           true,
+	"--db-cluster":              true,
+	"--source-root":             true,
+	"-s":                        true,
+	"--github-url":              true,
+	"-g":                        true,
+	"--mode":                    true,
+	"-m":                        true,
+	"--cleanup-upgrade-backups": true,
+	"--extractor-option":        true,
+	"-O":                        true,
+	"--extractor-options-file":  true,
+	"--registries-auth-stdin":   true,
+	"--github-auth-stdin":       true,
+	"-j, --threads":             true,
+	"-M, --ram":                 true,
+	"--search-path":             true,
+	"--max-disk-cache":          true,
+}
+
+var databaseAnalyzeFlags = map[string]bool{
+	"--format":                       true,
+	"--output":                       true,
+	"-o":                             true,
+	"--no-rerun":                     true,
+	"--rerun":                        true,
+	"--no-print-diagnostics-summary": true,
+	"--no-print-metrics-summary":     true,
+	"--sarif-add-file-contents":      true,
+	"--sarif-add-snippets":           true,
+	"--sarif-add-query-help":         true,
+	"--sarif-group-rules-by-pack":    true,
+	"--sarif-multicause-markdown":    true,
+	"--no-sarif-add-file-contents":   true,
+	"--no-sarif-add-snippets":        true,
+	"--no-sarif-add-query-help":      true,
+	"--no-sarif-group-rules-by-pack": true,
+	"--no-sarif-multicause-markdown": true,
+	"--no-group-results":             true,
+	"--csv-location-format":          true,
+	"--dot-location-url-format":      true,
+	"--sarif-category":               true,
+	"--no-download":                  true,
+	"--download":                     true,
+	"--external":                     true,
+	"--warnings":                     true,
+	"--no-debug-info":                true,
+	"--no-fast-compilation":          true,
+	"--no-local-checking":            true,
+	"--fast-compilation":             true,
+	"--local-checking":               true,
+	"--no-metadata-verification":     true,
+	"--additional-packs":             true,
+	"--registries-auth-stdin":        true,
+	"--github-auth-stdin":            true,
+	//"-j, --threads":           true,
+	//"-M, --ram":               true,
+	"--search-path":    true,
+	"--max-disk-cache": true,
+}
+
+func validateFlags(input string, validFlags map[string]bool) ([]string, error) {
+	flagPairs := strings.Split(input, " ")
+	params := []string{}
+
+	for _, pair := range flagPairs {
+		flagValuePair := strings.Split(pair, "=")
+		flag := flagValuePair[0]
+
+		if _, exists := validFlags[flag]; exists {
+			params = append(params, pair)
+		}
+	}
+
+	return params, nil
+}
+
+func checkFlags(flagsFromCheck map[string]bool, flags []string) bool {
+	for _, flag := range flags {
+		if _, exists := flagsFromCheck[flag]; exists {
+			return true
+		}
+	}
+	return false
+}
+
+func parseAndJoinFlags(databaseCreateFlagsStr, databaseAnalyzeFlagsStr string) map[string]bool {
+	flagStrings := []string{databaseCreateFlagsStr, databaseAnalyzeFlagsStr}
+	jointFlags := make(map[string]bool)
+
+	for _, flagString := range flagStrings {
+		individualFlags := strings.Fields(flagString)
+		for _, flag := range individualFlags {
+			flagName := strings.Split(flag, "=")[0]
+			jointFlags[flagName] = true
+		}
+	}
+
+	return jointFlags
+}
+
+// Appends a flag to the cmd slice if it's not present in the config string
+func appendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag string, customFlags map[string]bool) []string {
+	if !checkFlags(customFlags, flagToCheck) {
+		cmd = append(cmd, appendFlag)
+	}
+	return cmd
+}
+
 func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
 	codeqlVersion, err := os.ReadFile("/etc/image-version")
 	if err != nil {
@@ -278,33 +399,39 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		log.Entry().Infof("CodeQL image version: %s", string(codeqlVersion))
 	}
 
+	customFlags := parseAndJoinFlags(config.DatabaseCreateFlags, config.DatabaseAnalyzeFlags)
+
 	var reports []piperutils.Path
-	cmd := []string{"database", "create", config.Database, "--overwrite", "--source-root", ".", "--working-dir", config.ModulePath}
+	cmd := []string{"database", "create", config.Database}
+	cmd = appendFlagIfNotPresent(cmd, []string{"overwrite"}, "--overwrite", customFlags)
+	cmd = appendFlagIfNotPresent(cmd, []string{"--source-root", "-s"}, "--source-root=.", customFlags)
+	cmd = appendFlagIfNotPresent(cmd, []string{"--working-dir"}, "--working-dir", customFlags)
 
-	language := getLangFromBuildTool(config.BuildTool)
-
-	if len(language) == 0 && len(config.Language) == 0 {
-		if config.BuildTool == "custom" {
-			return reports, fmt.Errorf("as the buildTool is custom. please specify the language parameter")
+	if setLanguage := checkFlags(customFlags, []string{"--language", "-l"}); !setLanguage {
+		language := getLangFromBuildTool(config.BuildTool)
+		if len(language) == 0 && len(config.Language) == 0 {
+			if config.BuildTool == "custom" {
+				return reports, fmt.Errorf("as the buildTool is custom. please specify the language parameter")
+			} else {
+				return reports, fmt.Errorf("the step could not recognize the specified buildTool %s. please specify valid buildtool", config.BuildTool)
+			}
+		}
+		if len(language) > 0 {
+			cmd = append(cmd, "--language="+language)
 		} else {
-			return reports, fmt.Errorf("the step could not recognize the specified buildTool %s. please specify valid buildtool", config.BuildTool)
+			cmd = append(cmd, "--language="+config.Language)
 		}
 	}
-	if len(language) > 0 {
-		cmd = append(cmd, "--language="+language)
-	} else {
-		cmd = append(cmd, "--language="+config.Language)
-	}
 
-	cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
+	cmd = append(cmd, getRamAndThreadsFromConfig(config, customFlags)...)
 
-	if len(config.BuildCommand) > 0 {
+	if len(config.BuildCommand) > 0 && !checkFlags(customFlags, []string{"--command", "-c"}) {
 		buildCmd := config.BuildCommand
 		buildCmd = buildCmd + getMavenSettings(config, utils)
 		cmd = append(cmd, "--command="+buildCmd)
 	}
 
-	additionalFlags, err := validateFlags(config.AdditionalFlags, databaseCreateFlags)
+	additionalFlags, err := validateFlags(config.DatabaseCreateFlags, databaseCreateFlags)
 	if err != nil {
 		log.Entry().Errorf("failed to validate additional flags: %s", err)
 		return reports, err
@@ -325,9 +452,9 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 
 	cmd = nil
 	cmd = append(cmd, "database", "analyze", "--format=sarif-latest", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
-	cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
+	cmd = append(cmd, getRamAndThreadsFromConfig(config, customFlags)...)
 
-	additionalFlags, err = validateFlags(config.AdditionalFlags, databaseCreateFlags)
+	additionalFlags, err = validateFlags(config.DatabaseAnalyzeFlags, databaseAnalyzeFlags)
 	if err != nil {
 		log.Entry().Errorf("failed to validate additional flags: %s", err)
 		return reports, err
@@ -345,8 +472,16 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 
 	cmd = nil
 	cmd = append(cmd, "database", "analyze", "--format=csv", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.csv")), config.Database)
-	cmd = append(cmd, getRamAndThreadsFromConfig(config)...)
+	cmd = append(cmd, getRamAndThreadsFromConfig(config, customFlags)...)
 	cmd = codeqlQuery(cmd, config.QuerySuite)
+
+	additionalFlags, err = validateFlags(config.DatabaseAnalyzeFlags, databaseAnalyzeFlags)
+	if err != nil {
+		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		return reports, err
+	}
+	cmd = append(cmd, additionalFlags...)
+
 	err = execute(utils, cmd, GeneralConfig.Verbose)
 	if err != nil {
 		log.Entry().Error("failed running command codeql database analyze for csv generation")
@@ -463,95 +598,6 @@ func addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite string, scanRes
 			influx.codeql_data.fields.optionalTotal = sr.Total
 		}
 	}
-}
-
-func getRamAndThreadsFromConfig(config *codeqlExecuteScanOptions) []string {
-	params := make([]string, 0, 2)
-	if len(config.Threads) > 0 {
-		params = append(params, "--threads="+config.Threads)
-	}
-	if len(config.Ram) > 0 {
-		params = append(params, "--ram="+config.Ram)
-	}
-	return params
-}
-
-var databaseCreateFlags = map[string]bool{
-	"--no-db-cluster": true,
-	"--db-cluster":    true,
-	"--source-root":   true,
-	"-s":              true,
-	//"--github-url":              true,
-	//"-g":                        true,
-	"--mode":                    true,
-	"-m":                        true,
-	"--cleanup-upgrade-backups": true,
-	"--extractor-option":        true,
-	"-O":                        true,
-	"--extractor-options-file":  true,
-	"--registries-auth-stdin":   true,
-	"--github-auth-stdin":       true,
-	//"-j, --threads":           true,
-	//"-M, --ram":               true,
-	"--search-path":    true,
-	"--max-disk-cache": true,
-}
-
-var databaseAnalyzeFlags = map[string]bool{
-	"--format":                       true,
-	"--output":                       true,
-	"-o":                             true,
-	"--no-rerun":                     true,
-	"--rerun":                        true,
-	"--no-print-diagnostics-summary": true,
-	"--no-print-metrics-summary":     true,
-	"--sarif-add-file-contents":      true,
-	"--sarif-add-snippets":           true,
-	"--sarif-add-query-help":         true,
-	"--sarif-group-rules-by-pack":    true,
-	"--sarif-multicause-markdown":    true,
-	"--no-sarif-add-file-contents":   true,
-	"--no-sarif-add-snippets":        true,
-	"--no-sarif-add-query-help":      true,
-	"--no-sarif-group-rules-by-pack": true,
-	"--no-sarif-multicause-markdown": true,
-	"--no-group-results":             true,
-	"--csv-location-format":          true,
-	"--dot-location-url-format":      true,
-	"--sarif-category":               true,
-	"--no-download":                  true,
-	"--download":                     true,
-	"--external":                     true,
-	"--warnings":                     true,
-	"--no-debug-info":                true,
-	"--no-fast-compilation":          true,
-	"--no-local-checking":            true,
-	"--fast-compilation":             true,
-	"--local-checking":               true,
-	"--no-metadata-verification":     true,
-	"--additional-packs":             true,
-	"--registries-auth-stdin":        true,
-	"--github-auth-stdin":            true,
-	//"-j, --threads":           true,
-	//"-M, --ram":               true,
-	"--search-path":    true,
-	"--max-disk-cache": true,
-}
-
-func validateFlags(input string, validFlags map[string]bool) ([]string, error) {
-	flagPairs := strings.Split(input, " ")
-	params := []string{}
-
-	for _, pair := range flagPairs {
-		flagValuePair := strings.Split(pair, "=")
-		flag := flagValuePair[0]
-
-		if _, exists := validFlags[flag]; exists {
-			params = append(params, pair)
-		}
-	}
-
-	return params, nil
 }
 
 func getMavenSettings(config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) string {
