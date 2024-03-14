@@ -322,9 +322,9 @@ func prepareCmdForDatabaseCreation(customFlags map[string]string, config *codeql
 	return cmd, nil
 }
 
-func prepareCmdForDatabaseAnalysis(customFlags map[string]string, config *codeqlExecuteScanOptions, format string) ([]string, error) {
+func prepareCmdForDatabaseAnalysis(customFlags map[string]string, config *codeqlExecuteScanOptions, format, output string) ([]string, error) {
 	var cmd []string
-	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
+	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
 	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
 
 	additionalFlags, err := codeql.ValidateFlags(customFlags, codeql.DatabaseAnalyzeFlags)
@@ -350,8 +350,8 @@ func createDatabase(config *codeqlExecuteScanOptions, customFlags map[string]str
 	return nil
 }
 
-func runDatabaseAnalysis(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils, format string) (*piperutils.Path, error) {
-	cmd, err := prepareCmdForDatabaseAnalysis(customFlags, config, format)
+func runDatabaseAnalysis(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils, format, output string) (*piperutils.Path, error) {
+	cmd, err := prepareCmdForDatabaseAnalysis(customFlags, config, format, output)
 	if err != nil {
 		log.Entry().Errorf("failed to prepare command for codeql database analyze (format=%s)", format)
 		return nil, err
@@ -377,13 +377,13 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		return reports, err
 	}
 
-	sarifReport, err := runDatabaseAnalysis(config, customFlags, utils, "sarif-latest")
+	sarifReport, err := runDatabaseAnalysis(config, customFlags, utils, "sarif-latest", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"))
 	if err != nil {
 		return reports, err
 	}
 	reports = append(reports, *sarifReport)
 
-	csvReport, err := runDatabaseAnalysis(config, customFlags, utils, "csv")
+	csvReport, err := runDatabaseAnalysis(config, customFlags, utils, "csv", filepath.Join(config.ModulePath, "target", "codeqlReport.csv"))
 	if err != nil {
 		return reports, err
 	}
