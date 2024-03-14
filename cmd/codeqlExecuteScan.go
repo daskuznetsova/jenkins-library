@@ -270,150 +270,28 @@ func waitSarifUploaded(config *codeqlExecuteScanOptions, codeqlSarifUploader cod
 	}
 }
 
-func getRamAndThreadsFromConfig(config *codeqlExecuteScanOptions, customFlags map[string]bool) []string {
-	params := make([]string, 0, 2)
-	if len(config.Threads) > 0 && !checkFlags(customFlags, []string{"--threads", "-j"}) {
-		params = append(params, "--threads="+config.Threads)
-	}
-	if len(config.Ram) > 0 && !checkFlags(customFlags, []string{"--ram", "-M"}) {
-		params = append(params, "--ram="+config.Ram)
-	}
-	return params
-}
-
-var databaseCreateFlags = map[string]bool{
-	"--no-db-cluster":           true,
-	"--db-cluster":              true,
-	"--source-root":             true,
-	"-s":                        true,
-	"--github-url":              true,
-	"-g":                        true,
-	"--mode":                    true,
-	"-m":                        true,
-	"--cleanup-upgrade-backups": true,
-	"--extractor-option":        true,
-	"-O":                        true,
-	"--extractor-options-file":  true,
-	"--registries-auth-stdin":   true,
-	"--github-auth-stdin":       true,
-	"-j, --threads":             true,
-	"-M, --ram":                 true,
-	"--search-path":             true,
-	"--max-disk-cache":          true,
-}
-
-var databaseAnalyzeFlags = map[string]bool{
-	"--format":                       true,
-	"--output":                       true,
-	"-o":                             true,
-	"--no-rerun":                     true,
-	"--rerun":                        true,
-	"--no-print-diagnostics-summary": true,
-	"--no-print-metrics-summary":     true,
-	"--sarif-add-file-contents":      true,
-	"--sarif-add-snippets":           true,
-	"--sarif-add-query-help":         true,
-	"--sarif-group-rules-by-pack":    true,
-	"--sarif-multicause-markdown":    true,
-	"--no-sarif-add-file-contents":   true,
-	"--no-sarif-add-snippets":        true,
-	"--no-sarif-add-query-help":      true,
-	"--no-sarif-group-rules-by-pack": true,
-	"--no-sarif-multicause-markdown": true,
-	"--no-group-results":             true,
-	"--csv-location-format":          true,
-	"--dot-location-url-format":      true,
-	"--sarif-category":               true,
-	"--no-download":                  true,
-	"--download":                     true,
-	"--external":                     true,
-	"--warnings":                     true,
-	"--no-debug-info":                true,
-	"--no-fast-compilation":          true,
-	"--no-local-checking":            true,
-	"--fast-compilation":             true,
-	"--local-checking":               true,
-	"--no-metadata-verification":     true,
-	"--additional-packs":             true,
-	"--registries-auth-stdin":        true,
-	"--github-auth-stdin":            true,
-	//"-j, --threads":           true,
-	//"-M, --ram":               true,
-	"--search-path":    true,
-	"--max-disk-cache": true,
-}
-
-func validateFlags(input string, validFlags map[string]bool) ([]string, error) {
-	flagPairs := strings.Split(input, " ")
-	params := []string{}
-
-	for _, pair := range flagPairs {
-		flagValuePair := strings.Split(pair, "=")
-		flag := flagValuePair[0]
-
-		if _, exists := validFlags[flag]; exists {
-			params = append(params, pair)
-		}
-	}
-
-	return params, nil
-}
-
-func checkFlags(flagsFromCheck map[string]bool, flags []string) bool {
-	for _, flag := range flags {
-		if _, exists := flagsFromCheck[flag]; exists {
-			return true
-		}
-	}
-	return false
-}
-
-func parseAndJoinFlags(databaseCreateFlagsStr, databaseAnalyzeFlagsStr string) map[string]bool {
-	flagStrings := []string{databaseCreateFlagsStr, databaseAnalyzeFlagsStr}
-	jointFlags := make(map[string]bool)
-
-	for _, flagString := range flagStrings {
-		individualFlags := strings.Fields(flagString)
-		for _, flag := range individualFlags {
-			flagName := strings.Split(flag, "=")[0]
-			jointFlags[flagName] = true
-		}
-	}
-
-	return jointFlags
-}
-
-// Appends a flag to the cmd slice if it's not present in the config string
-func appendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag string, customFlags map[string]bool) []string {
-	if !checkFlags(customFlags, flagToCheck) {
-		cmd = append(cmd, appendFlag)
-	}
-	return cmd
-}
-
-func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
+func logImageVersion() {
 	codeqlVersion, err := os.ReadFile("/etc/image-version")
 	if err != nil {
 		log.Entry().Infof("CodeQL image version: unknown")
 	} else {
 		log.Entry().Infof("CodeQL image version: %s", string(codeqlVersion))
 	}
+}
 
-	customFlags := parseAndJoinFlags(config.DatabaseCreateFlags, config.DatabaseAnalyzeFlags)
-
-	var reports []piperutils.Path
+func prepareCmdForDatabaseCreation(customFlags map[string]string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) ([]string, error) {
 	cmd := []string{"database", "create", config.Database}
-	cmd = appendFlagIfNotPresent(cmd, []string{"overwrite"}, "--overwrite", customFlags)
-	cmd = appendFlagIfNotPresent(cmd, []string{"--source-root", "-s"}, "--source-root=.", customFlags)
-	cmd = appendFlagIfNotPresent(cmd, []string{"--working-dir"}, "--working-dir", customFlags)
+	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"overwrite"}, []string{"--overwrite"}, customFlags)
+	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"--source-root", "-s"}, []string{"--source-root=."}, customFlags)
+	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"--working-dir"}, []string{"--working-dir", config.ModulePath}, customFlags)
 
-	if setLanguage := checkFlags(customFlags, []string{"--language", "-l"}); !setLanguage {
+	if setLanguage := codeql.CheckFlags(customFlags, []string{"--language", "-l"}); !setLanguage {
 		language := getLangFromBuildTool(config.BuildTool)
 		if len(language) == 0 && len(config.Language) == 0 {
 			if config.BuildTool == "custom" {
-				return reports, fmt.Errorf("as the buildTool is custom. please specify the language parameter")
+				return nil, fmt.Errorf("as the buildTool is custom. please specify the language parameter")
 			} else {
-				return reports, fmt.Errorf("the step could not recognize the specified buildTool %s. please specify valid buildtool", config.BuildTool)
+				return nil, fmt.Errorf("the step could not recognize the specified buildTool %s. please specify valid buildtool", config.BuildTool)
 			}
 		}
 		if len(language) > 0 {
@@ -423,72 +301,93 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		}
 	}
 
-	cmd = append(cmd, getRamAndThreadsFromConfig(config, customFlags)...)
+	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
 
-	if len(config.BuildCommand) > 0 && !checkFlags(customFlags, []string{"--command", "-c"}) {
+	if len(config.BuildCommand) > 0 && !codeql.CheckFlags(customFlags, []string{"--command", "-c"}) {
 		buildCmd := config.BuildCommand
-		buildCmd = buildCmd + getMavenSettings(config, utils)
+		buildCmd = buildCmd + getMavenSettings(buildCmd, config, utils)
 		cmd = append(cmd, "--command="+buildCmd)
 	}
-
-	additionalFlags, err := validateFlags(config.DatabaseCreateFlags, databaseCreateFlags)
-	if err != nil {
-		log.Entry().Errorf("failed to validate additional flags: %s", err)
-		return reports, err
+	if codeql.CheckFlags(customFlags, []string{"--command", "-c"}) {
+		getUpdatedCommandWithMavenSettings(config, customFlags, utils)
 	}
 
+	additionalFlags, err := codeql.ValidateFlags(customFlags, codeql.DatabaseCreateFlags)
+	if err != nil {
+		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		return nil, err
+	}
 	cmd = append(cmd, additionalFlags...)
 
-	err = execute(utils, cmd, GeneralConfig.Verbose)
+	return cmd, nil
+}
+
+func prepareCmdForDatabaseAnalysis(customFlags map[string]string, config *codeqlExecuteScanOptions, format string) ([]string, error) {
+	var cmd []string
+	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
+	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
+
+	additionalFlags, err := codeql.ValidateFlags(customFlags, codeql.DatabaseAnalyzeFlags)
 	if err != nil {
+		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		return nil, err
+	}
+	cmd = append(cmd, additionalFlags...)
+	cmd = codeqlQuery(cmd, config.QuerySuite)
+	return cmd, nil
+}
+
+func createDatabase(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils) error {
+	cmd, err := prepareCmdForDatabaseCreation(customFlags, config, utils)
+	if err != nil {
+		log.Entry().Error("failed to prepare command for codeql database create")
+		return err
+	}
+	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
 		log.Entry().Error("failed running command codeql database create")
+		return err
+	}
+	return nil
+}
+
+func runDatabaseAnalysis(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils, format string) (*piperutils.Path, error) {
+	cmd, err := prepareCmdForDatabaseAnalysis(customFlags, config, format)
+	if err != nil {
+		log.Entry().Errorf("failed to prepare command for codeql database analyze (format=%s)", format)
+		return nil, err
+	}
+	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
+		log.Entry().Errorf("failed running command codeql database analyze for %s generation", format)
+		return nil, err
+	}
+	report := &piperutils.Path{Target: filepath.Join(config.ModulePath, "target", fmt.Sprintf("codeqlReport.%s", format))}
+	return report, nil
+}
+
+func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
+	logImageVersion()
+	customFlags := codeql.ParseCustomFlags(config.DatabaseCreateFlags, config.DatabaseAnalyzeFlags)
+	var reports []piperutils.Path
+
+	if err := createDatabase(config, customFlags, utils); err != nil {
+		return reports, err
+	}
+	if err := os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm); err != nil {
+		log.Entry().Errorf("failed to create directory: %v", err)
 		return reports, err
 	}
 
-	err = os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm)
+	sarifReport, err := runDatabaseAnalysis(config, customFlags, utils, "sarif-latest")
 	if err != nil {
-		return reports, fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	cmd = nil
-	cmd = append(cmd, "database", "analyze", "--format=sarif-latest", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")), config.Database)
-	cmd = append(cmd, getRamAndThreadsFromConfig(config, customFlags)...)
-
-	additionalFlags, err = validateFlags(config.DatabaseAnalyzeFlags, databaseAnalyzeFlags)
-	if err != nil {
-		log.Entry().Errorf("failed to validate additional flags: %s", err)
 		return reports, err
 	}
-	cmd = append(cmd, additionalFlags...)
+	reports = append(reports, *sarifReport)
 
-	cmd = codeqlQuery(cmd, config.QuerySuite)
-	err = execute(utils, cmd, GeneralConfig.Verbose)
+	csvReport, err := runDatabaseAnalysis(config, customFlags, utils, "csv")
 	if err != nil {
-		log.Entry().Error("failed running command codeql database analyze for sarif generation")
 		return reports, err
 	}
-
-	reports = append(reports, piperutils.Path{Target: filepath.Join(config.ModulePath, "target", "codeqlReport.sarif")})
-
-	cmd = nil
-	cmd = append(cmd, "database", "analyze", "--format=csv", fmt.Sprintf("--output=%v", filepath.Join(config.ModulePath, "target", "codeqlReport.csv")), config.Database)
-	cmd = append(cmd, getRamAndThreadsFromConfig(config, customFlags)...)
-	cmd = codeqlQuery(cmd, config.QuerySuite)
-
-	additionalFlags, err = validateFlags(config.DatabaseAnalyzeFlags, databaseAnalyzeFlags)
-	if err != nil {
-		log.Entry().Errorf("failed to validate additional flags: %s", err)
-		return reports, err
-	}
-	cmd = append(cmd, additionalFlags...)
-
-	err = execute(utils, cmd, GeneralConfig.Verbose)
-	if err != nil {
-		log.Entry().Error("failed running command codeql database analyze for csv generation")
-		return reports, err
-	}
-
-	reports = append(reports, piperutils.Path{Target: filepath.Join(config.ModulePath, "target", "codeqlReport.csv")})
+	reports = append(reports, *csvReport)
 
 	repoInfo, err := initGitInfo(config)
 	if err != nil {
@@ -524,30 +423,12 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	}
 
 	var scanResults []codeql.CodeqlFindings
-
 	if !config.UploadResults {
 		log.Entry().Warn("The sarif results will not be uploaded to the repository and compliance report will not be generated as uploadResults is set to false.")
 	} else {
-		log.Entry().Infof("The sarif results will be uploaded to the repository %s", repoUrl)
-		hasToken, token := getToken(config)
-		if !hasToken {
-			return reports, errors.New("failed running upload-results as githubToken was not specified")
-		}
-
-		sarifUrl, err := uploadResults(config, repoInfo, token, utils)
+		scanResults, err = handleResultsUpload(config, repoInfo, repoUrl, repoCodeqlScanUrl, repoReference, utils)
 		if err != nil {
 			return reports, err
-		}
-		codeqlSarifUploader := codeql.NewCodeqlSarifUploaderInstance(sarifUrl, token)
-		err = waitSarifUploaded(config, &codeqlSarifUploader)
-		if err != nil {
-			return reports, errors.Wrap(err, "failed to upload sarif")
-		}
-
-		codeqlScanAuditInstance := codeql.NewCodeqlScanAuditInstance(repoInfo.ServerUrl, repoInfo.Owner, repoInfo.Repo, token, []string{})
-		scanResults, err = codeqlScanAuditInstance.GetVulnerabilities(repoInfo.Ref)
-		if err != nil {
-			return reports, errors.Wrap(err, "failed to get scan results")
 		}
 
 		codeqlAudit := codeql.CodeqlAudit{ToolName: "codeql", RepositoryUrl: repoUrl, CodeScanningLink: repoCodeqlScanUrl, RepositoryReferenceUrl: repoReference, QuerySuite: config.QuerySuite, ScanResults: scanResults}
@@ -558,14 +439,9 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		reports = append(reports, paths...)
 
 		if config.CheckForCompliance {
-			for _, scanResult := range scanResults {
-				if scanResult.ClassificationName == codeql.AuditAll {
-					unaudited := scanResult.Total - scanResult.Audited
-					if unaudited > config.VulnerabilityThresholdTotal {
-						msg := fmt.Sprintf("Your repository %v with ref %v is not compliant. Total unaudited issues are %v which is greater than the VulnerabilityThresholdTotal count %v", repoUrl, repoInfo.Ref, unaudited, config.VulnerabilityThresholdTotal)
-						return reports, errors.Errorf(msg)
-					}
-				}
+			err = checkForCompliance(scanResults, config, repoUrl, repoInfo)
+			if err != nil {
+				return reports, err
 			}
 		}
 	}
@@ -580,6 +456,43 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	}
 
 	return reports, nil
+}
+
+func handleResultsUpload(config *codeqlExecuteScanOptions, repoInfo codeql.RepoInfo, repoUrl, repoCodeqlScanUrl, repoReference string, utils codeqlExecuteScanUtils) ([]codeql.CodeqlFindings, error) {
+	hasToken, token := getToken(config)
+	if !hasToken {
+		return nil, errors.New("failed running upload-results as githubToken was not specified")
+	}
+
+	sarifUrl, err := uploadResults(config, repoInfo, token, utils)
+	if err != nil {
+		return nil, err
+	}
+	codeqlSarifUploader := codeql.NewCodeqlSarifUploaderInstance(sarifUrl, token)
+	err = waitSarifUploaded(config, &codeqlSarifUploader)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to upload sarif")
+	}
+
+	codeqlScanAuditInstance := codeql.NewCodeqlScanAuditInstance(repoInfo.ServerUrl, repoInfo.Owner, repoInfo.Repo, token, []string{})
+	scanResults, err := codeqlScanAuditInstance.GetVulnerabilities(repoInfo.Ref)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get scan results")
+	}
+	return scanResults, nil
+}
+
+func checkForCompliance(scanResults []codeql.CodeqlFindings, config *codeqlExecuteScanOptions, repoUrl string, repoInfo codeql.RepoInfo) error {
+	for _, scanResult := range scanResults {
+		if scanResult.ClassificationName == codeql.AuditAll {
+			unaudited := scanResult.Total - scanResult.Audited
+			if unaudited > config.VulnerabilityThresholdTotal {
+				msg := fmt.Sprintf("Your repository %v with ref %v is not compliant. Total unaudited issues are %v which is greater than the VulnerabilityThresholdTotal count %v", repoUrl, repoInfo.Ref, unaudited, config.VulnerabilityThresholdTotal)
+				return errors.Errorf(msg)
+			}
+		}
+	}
+	return nil
 }
 
 func addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite string, scanResults []codeql.CodeqlFindings, influx *codeqlExecuteScanInflux) {
@@ -600,9 +513,9 @@ func addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite string, scanRes
 	}
 }
 
-func getMavenSettings(config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) string {
+func getMavenSettings(buildCmd string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) string {
 	params := ""
-	if len(config.BuildCommand) > 0 && config.BuildTool == "maven" && !strings.Contains(config.BuildCommand, "--global-settings") && !strings.Contains(config.BuildCommand, "--settings") {
+	if len(buildCmd) > 0 && config.BuildTool == "maven" && !strings.Contains(buildCmd, "--global-settings") && !strings.Contains(buildCmd, "--settings") {
 		mvnParams, err := maven.DownloadAndGetMavenParameters(config.GlobalSettingsFile, config.ProjectSettingsFile, utils)
 		if err != nil {
 			log.Entry().Error("failed to download and get maven parameters: ", err)
@@ -613,4 +526,23 @@ func getMavenSettings(config *codeqlExecuteScanOptions, utils codeqlExecuteScanU
 		}
 	}
 	return params
+}
+
+func getUpdatedCommandWithMavenSettings(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils) string {
+	var buildCmd string
+	if customFlags["--command"] != "" {
+		buildCmd = customFlags["--command"]
+	} else if customFlags["-c"] != "" {
+		buildCmd = customFlags["-c"]
+	}
+	if buildCmd != "" {
+		buildCmd += getMavenSettings(buildCmd, config, utils)
+		if customFlags["--command"] != "" {
+			customFlags["--command"] = buildCmd
+		}
+		if customFlags["-c"] != "" {
+			customFlags["-c"] = buildCmd
+		}
+	}
+	return buildCmd
 }
