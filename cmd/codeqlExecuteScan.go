@@ -301,34 +301,6 @@ func prepareCmdForUploadResults(config *codeqlExecuteScanOptions, repoInfo *code
 	return cmd
 }
 
-func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo) error {
-	log.Entry().Infof("DB sources for %s will be uploaded to target GitHub repo: %s", config.Repository, repoInfo.FullUrl)
-
-	hasToken, token := getToken(config)
-	if !hasToken {
-		return errors.New("failed running upload db sources to GitHub as githubToken was not specified")
-	}
-	repoUploader, err := codeql.NewGitUploaderInstance(
-		token,
-		repoInfo.AnalyzedRef,
-		config.Database,
-		repoInfo.CommitId,
-		config.Repository,
-		config.TargetGithubRepoURL,
-	)
-	if err != nil {
-		return err
-	}
-	targetCommitId, err := repoUploader.UploadProjectToGithub()
-	if err != nil {
-		return errors.Wrap(err, "failed uploading db sources from non-GitHub SCM to GitHub")
-	}
-	repoInfo.CommitId = targetCommitId
-	log.Entry().Info("DB sources were successfully uploaded to target GitHub repo")
-
-	return nil
-}
-
 func handleUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, utils codeqlExecuteScanUtils) ([]codeql.CodeqlFindings, []piperutils.Path, error) {
 	var scanResults []codeql.CodeqlFindings
 	var reports []piperutils.Path
@@ -386,6 +358,34 @@ func uploadSarifResults(config *codeqlExecuteScanOptions, token string, repoInfo
 	if err != nil {
 		return errors.Wrap(err, "failed to upload sarif")
 	}
+	return nil
+}
+
+func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo) error {
+	log.Entry().Infof("DB sources for %s will be uploaded to target GitHub repo: %s", config.Repository, repoInfo.FullUrl)
+
+	hasToken, token := getToken(config)
+	if !hasToken {
+		return errors.New("failed running upload db sources to GitHub as githubToken was not specified")
+	}
+	repoUploader, err := codeql.NewGitUploaderInstance(
+		token,
+		repoInfo.AnalyzedRef,
+		config.Database,
+		repoInfo.CommitId,
+		config.Repository,
+		config.TargetGithubRepoURL,
+	)
+	if err != nil {
+		return err
+	}
+	targetCommitId, err := repoUploader.UploadProjectToGithub()
+	if err != nil {
+		return errors.Wrap(err, "failed uploading db sources from non-GitHub SCM to GitHub")
+	}
+	repoInfo.CommitId = targetCommitId
+	log.Entry().Info("DB sources were successfully uploaded to target GitHub repo")
+
 	return nil
 }
 

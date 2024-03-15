@@ -28,51 +28,111 @@ func newCodeqlExecuteScanTestsUtils() codeqlExecuteScanMockUtils {
 	return utils
 }
 
-func TestRunCodeqlExecuteScan(t *testing.T) {
+func TestPrepareCmdForDatabaseCreate(t *testing.T) {
+	t.Parallel()
 
-	influx := &codeqlExecuteScanInflux{}
-
-	t.Run("Valid CodeqlExecuteScan", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", ModulePath: "./"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
+	t.Run("No custom flags", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:     "codeqlDB",
+			ModulePath:   "./",
+			BuildTool:    "maven",
+			BuildCommand: "mvn clean install",
+		}
+		cmd, err := prepareCmdForDatabaseCreate(map[string]string{}, config, newCodeqlExecuteScanTestsUtils())
 		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 9, len(cmd))
+		assert.Equal(t, "database create codeqlDB --overwrite --source-root=. --working-dir ./ --language=java --command=mvn clean install",
+			strings.Join(cmd, " "))
 	})
 
-	t.Run("No auth token passed on upload results", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", UploadResults: true, ModulePath: "./"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
-		assert.Error(t, err)
-	})
-
-	t.Run("GitCommitID is NA on upload results", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", UploadResults: true, ModulePath: "./", CommitID: "NA"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
-		assert.Error(t, err)
-	})
-
-	t.Run("Custom buildtool", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "custom", Language: "javascript", ModulePath: "./"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
+	t.Run("No custom flags, custom build tool", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			ModulePath: "./",
+			BuildTool:  "custom",
+			Language:   "javascript",
+		}
+		cmd, err := prepareCmdForDatabaseCreate(map[string]string{}, config, newCodeqlExecuteScanTestsUtils())
 		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+		assert.Equal(t, "database create codeqlDB --overwrite --source-root=. --working-dir ./ --language=javascript",
+			strings.Join(cmd, " "))
 	})
 
-	t.Run("Custom buildtool but no language specified", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "custom", ModulePath: "./", GithubToken: "test"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
+	t.Run("No custom flags, custom build tool, no language specified", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			ModulePath: "./",
+			BuildTool:  "custom",
+		}
+		_, err := prepareCmdForDatabaseCreate(map[string]string{}, config, newCodeqlExecuteScanTestsUtils())
 		assert.Error(t, err)
 	})
 
-	t.Run("Invalid buildtool and no language specified", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "test", ModulePath: "./", GithubToken: "test"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
+	t.Run("No custom flags, invalid build tool, no language specified", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			ModulePath: "./",
+			BuildTool:  "test",
+		}
+		_, err := prepareCmdForDatabaseCreate(map[string]string{}, config, newCodeqlExecuteScanTestsUtils())
 		assert.Error(t, err)
 	})
 
-	t.Run("Invalid buildtool but language specified", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "test", Language: "javascript", ModulePath: "./", GithubToken: "test"}
-		_, err := runCodeqlExecuteScan(&config, nil, newCodeqlExecuteScanTestsUtils(), influx)
+	t.Run("No custom flags, invalid build tool, language specified", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			ModulePath: "./",
+			BuildTool:  "test",
+			Language:   "javascript",
+		}
+		cmd, err := prepareCmdForDatabaseCreate(map[string]string{}, config, newCodeqlExecuteScanTestsUtils())
 		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+		assert.Equal(t, "database create codeqlDB --overwrite --source-root=. --working-dir ./ --language=javascript",
+			strings.Join(cmd, " "))
 	})
+
+	t.Run("Custom flags, overwriting source-root", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			ModulePath: "./",
+			Language:   "javascript",
+		}
+		customFlags := map[string]string{
+			"--source-root": "customSrcRoot/",
+		}
+		cmd, err := prepareCmdForDatabaseCreate(customFlags, config, newCodeqlExecuteScanTestsUtils())
+		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+		assert.Equal(t, "database create codeqlDB --overwrite --working-dir ./ --language=javascript --source-root=customSrcRoot/",
+			strings.Join(cmd, " "))
+	})
+
+	t.Run("Custom flags, overwriting threads from config", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			ModulePath: "./",
+			Language:   "javascript",
+			Threads:    "0",
+			Ram:        "2000",
+		}
+		customFlags := map[string]string{
+			"--source-root": "customSrcRoot/",
+			"-j":            "1",
+		}
+		cmd, err := prepareCmdForDatabaseCreate(customFlags, config, newCodeqlExecuteScanTestsUtils())
+		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 10, len(cmd))
+		assert.True(t, "database create codeqlDB --overwrite --working-dir ./ --language=javascript --ram=2000 -j=1 --source-root=customSrcRoot/" == strings.Join(cmd, " ") ||
+			"database create codeqlDB --overwrite --working-dir ./ --language=javascript --ram=2000 --source-root=customSrcRoot/ -j=1" == strings.Join(cmd, " "))
+	})
+
 }
 
 func TestPrepareCmdForDatabaseAnalyze(t *testing.T) {
