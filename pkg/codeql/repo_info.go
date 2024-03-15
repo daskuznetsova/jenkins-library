@@ -30,6 +30,15 @@ func GetRepoInfo(repository, analyzedRef, commitID, targetGithubRepoURL, targetG
 	repoInfo.AnalyzedRef = analyzedRef
 	repoInfo.CommitId = commitID
 
+	fetchOrchestratorRepoInfoIfNeeded(repoInfo)
+
+	if len(targetGithubRepoURL) > 0 {
+		log.Entry().Infof("Checking target GitHub repo URL: %s", targetGithubRepoURL)
+		if err := updateRepoInfoForTargetGitHub(targetGithubRepoURL, targetGithubBranchName, repoInfo); err != nil {
+			return repoInfo, err
+		}
+	}
+
 	repoUrl := fmt.Sprintf("%s/%s/%s", repoInfo.ServerUrl, repoInfo.Owner, repoInfo.Repo)
 	repoInfo.FullUrl = repoUrl
 	repoInfo.ScanUrl = fmt.Sprintf("%s/security/code-scanning?query=is:open+ref:%s", repoUrl, repoInfo.AnalyzedRef)
@@ -40,14 +49,6 @@ func GetRepoInfo(repository, analyzedRef, commitID, targetGithubRepoURL, targetG
 	}
 	repoInfo.FullRef = repoRef
 
-	fetchOrchestratorRepoInfoIfNeeded(repoInfo)
-
-	if len(targetGithubRepoURL) > 0 {
-		log.Entry().Infof("Checking target GitHub repo URL: %s", targetGithubRepoURL)
-		if err := updateRepoInfoForTargetGitHub(targetGithubRepoURL, targetGithubBranchName, repoInfo); err != nil {
-			return repoInfo, err
-		}
-	}
 	return repoInfo, nil
 }
 

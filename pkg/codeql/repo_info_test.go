@@ -3,8 +3,202 @@ package codeql
 import (
 	"testing"
 
+	"github.com/SAP/jenkins-library/pkg/orchestrator"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestGetRepoInfo(t *testing.T) {
+	t.Run("Valid URL1", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/codeql.git"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/tree/branch", repoInfo.FullRef)
+	})
+
+	t.Run("Valid URL2", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/codeql"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/tree/branch", repoInfo.FullRef)
+	})
+
+	t.Run("Valid url with dots URL1", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/com.sap.codeql.git"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "com.sap.codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/com.sap.codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/com.sap.codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/com.sap.codeql/tree/branch", repoInfo.FullRef)
+	})
+
+	t.Run("Valid url with dots URL2", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/com.sap.codeql"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "com.sap.codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/com.sap.codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/com.sap.codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/com.sap.codeql/tree/branch", repoInfo.FullRef)
+	})
+
+	t.Run("Valid url with username and token URL1", func(t *testing.T) {
+		repo := "https://username:token@github.hello.test/Testing/codeql.git"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/tree/branch", repoInfo.FullRef)
+	})
+
+	t.Run("Valid url with username and token URL2", func(t *testing.T) {
+		repo := "https://username:token@github.hello.test/Testing/codeql"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/tree/branch", repoInfo.FullRef)
+	})
+
+	t.Run("Invalid URL with no org/reponame", func(t *testing.T) {
+		repo := "https://github.hello.test"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, "", "")
+		assert.NoError(t, err)
+		_, err = orchestrator.GetOrchestratorConfigProvider(nil)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		if err != nil {
+			assert.Equal(t, "", repoInfo.Owner)
+			assert.Equal(t, "", repoInfo.Repo)
+			assert.Equal(t, "", repoInfo.ServerUrl)
+		}
+	})
+
+	t.Run("Non-Github SCM, TargetGithubRepo is not empty", func(t *testing.T) {
+		repo := "https://gitlab.test/Testing/codeql.git"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+		targetGHRepoUrl := "https://github.hello.test/Testing/codeql"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, targetGHRepoUrl, "")
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/security/code-scanning?query=is:open+ref:refs/heads/branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/tree/branch", repoInfo.FullRef)
+
+	})
+
+	t.Run("Non-Github SCM, TargetGithubRepo and TargetGithubBranch are not empty", func(t *testing.T) {
+		repo := "https://gitlab.test/Testing/codeql.git"
+		analyzedRef := "refs/heads/branch"
+		commitID := "abcd1234"
+		targetGHRepoUrl := "https://github.hello.test/Testing/codeql"
+		targetGHRepoBranch := "new-branch"
+
+		repoInfo, err := GetRepoInfo(repo, analyzedRef, commitID, targetGHRepoUrl, targetGHRepoBranch)
+		assert.NoError(t, err)
+		assert.Equal(t, "abcd1234", repoInfo.CommitId)
+		assert.Equal(t, "Testing", repoInfo.Owner)
+		assert.Equal(t, "codeql", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/new-branch", repoInfo.AnalyzedRef)
+		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql", repoInfo.FullUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/security/code-scanning?query=is:open+ref:refs/heads/new-branch", repoInfo.ScanUrl)
+		assert.Equal(t, "https://github.hello.test/Testing/codeql/tree/new-branch", repoInfo.FullRef)
+
+	})
+}
+
+func TestBuildRepoReference(t *testing.T) {
+	t.Run("Valid AnalyzedRef with branch", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/fortify"
+		analyzedRef := "refs/head/branch"
+		ref, err := buildRepoReference(repo, analyzedRef)
+		assert.NoError(t, err)
+		assert.Equal(t, "https://github.hello.test/Testing/fortify/tree/branch", ref)
+	})
+	t.Run("Valid AnalyzedRef with PR", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/fortify"
+		analyzedRef := "refs/pull/1/merge"
+		ref, err := buildRepoReference(repo, analyzedRef)
+		assert.NoError(t, err)
+		assert.Equal(t, "https://github.hello.test/Testing/fortify/pull/1", ref)
+	})
+	t.Run("Invalid AnalyzedRef without branch name", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/fortify"
+		analyzedRef := "refs/head"
+		ref, err := buildRepoReference(repo, analyzedRef)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "Wrong analyzedRef format")
+		assert.Equal(t, "", ref)
+	})
+	t.Run("Invalid AnalyzedRef without PR id", func(t *testing.T) {
+		repo := "https://github.hello.test/Testing/fortify"
+		analyzedRef := "refs/pull/merge"
+		ref, err := buildRepoReference(repo, analyzedRef)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "Wrong analyzedRef format")
+		assert.Equal(t, "", ref)
+	})
+}
 
 func TestGetGitRepoInfo(t *testing.T) {
 	t.Run("Valid https URL1", func(t *testing.T) {
@@ -109,85 +303,3 @@ func TestGetGitRepoInfo(t *testing.T) {
 		assert.Error(t, getGitRepoInfo("git@github.com/fortify", &repoInfo))
 	})
 }
-
-//func TestInitGitInfo(t *testing.T) {
-//	t.Run("Valid URL1", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/codeql.git", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "Testing", repoInfo.Owner)
-//		assert.Equal(t, "codeql", repoInfo.Repo)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-//	})
-//
-//	t.Run("Valid URL2", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/codeql", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "Testing", repoInfo.Owner)
-//		assert.Equal(t, "codeql", repoInfo.Repo)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-//	})
-//
-//	t.Run("Valid url with dots URL1", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/com.sap.codeql.git", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "Testing", repoInfo.Owner)
-//		assert.Equal(t, "com.sap.codeql", repoInfo.Repo)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-//	})
-//
-//	t.Run("Valid url with dots URL2", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/com.sap.codeql", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "Testing", repoInfo.Owner)
-//		assert.Equal(t, "com.sap.codeql", repoInfo.Repo)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-//	})
-//
-//	t.Run("Valid url with username and token URL1", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://username:token@github.hello.test/Testing/codeql.git", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "Testing", repoInfo.Owner)
-//		assert.Equal(t, "codeql", repoInfo.Repo)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-//	})
-//
-//	t.Run("Valid url with username and token URL2", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://username:token@github.hello.test/Testing/codeql", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "Testing", repoInfo.Owner)
-//		assert.Equal(t, "codeql", repoInfo.Repo)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-//	})
-//
-//	t.Run("Invalid URL with no org/reponame", func(t *testing.T) {
-//		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-//		repoInfo, err := getRepoInfo(&config)
-//		assert.NoError(t, err)
-//		_, err = orchestrator.GetOrchestratorConfigProvider(nil)
-//		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-//		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-//		if err != nil {
-//			assert.Equal(t, "", repoInfo.Owner)
-//			assert.Equal(t, "", repoInfo.Repo)
-//			assert.Equal(t, "", repoInfo.ServerUrl)
-//		}
-//	})
-//}
