@@ -57,20 +57,32 @@ var DatabaseAnalyzeFlags = map[string]bool{
 	"--external":                     true,
 	"--warnings":                     true,
 	"--no-debug-info":                true,
-	"--no-fast-compilation":          true,
-	"--no-local-checking":            true,
-	"--fast-compilation":             true,
-	"--local-checking":               true,
-	"--no-metadata-verification":     true,
-	"--additional-packs":             true,
-	"--registries-auth-stdin":        true,
-	"--github-auth-stdin":            true,
-	"--threads":                      true,
-	"--ram":                          true,
-	"-j":                             true,
-	"-M":                             true,
-	"--search-path":                  true,
-	"--max-disk-cache":               true,
+	//"--no-fast-compilation":          true,	// deprecated
+	"--no-local-checking": true,
+	//"--fast-compilation":             true,	// deprecated
+	"--local-checking":           true,
+	"--no-metadata-verification": true,
+	"--additional-packs":         true,
+	"--registries-auth-stdin":    true,
+	"--github-auth-stdin":        true,
+	"--threads":                  true,
+	"--ram":                      true,
+	"-j":                         true,
+	"-M":                         true,
+	"--search-path":              true,
+	"--max-disk-cache":           true,
+}
+
+var longShortFlagsMap = map[string]string{
+	"--language":          "-l",
+	"--command":           "-c",
+	"--source-root":       "-s",
+	"--github-url":        "-g",
+	"--mode":              "-m",
+	"--extractor-option":  "-O",
+	"--github-auth-stdin": "-a",
+	"--threads":           "-j",
+	"--ram":               "-M",
 }
 
 func ValidateFlags(input map[string]string, validFlags map[string]bool) ([]string, error) {
@@ -78,16 +90,20 @@ func ValidateFlags(input map[string]string, validFlags map[string]bool) ([]strin
 
 	for flag, value := range input {
 		if _, exists := validFlags[flag]; exists {
-			params = append(params, value)
+			appendFlag := flag
+			if value != "" {
+				appendFlag = appendFlag + "=" + value
+			}
+			params = append(params, appendFlag)
 		}
 	}
 
 	return params, nil
 }
 
-func CheckFlags(flagsFromCheck map[string]string, flags []string) bool {
-	for _, flag := range flags {
-		if _, exists := flagsFromCheck[flag]; exists {
+func CheckIfFlagSetByUser(customFlags map[string]string, flagsToCheck []string) bool {
+	for _, flag := range flagsToCheck {
+		if _, exists := customFlags[flag]; exists {
 			return true
 		}
 	}
@@ -95,7 +111,7 @@ func CheckFlags(flagsFromCheck map[string]string, flags []string) bool {
 }
 
 func AppendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag []string, customFlags map[string]string) []string {
-	if !CheckFlags(customFlags, flagToCheck) {
+	if !CheckIfFlagSetByUser(customFlags, flagToCheck) {
 		cmd = append(cmd, appendFlag...)
 	}
 	return cmd
@@ -113,16 +129,70 @@ func ParseCustomFlags(databaseCreateFlagsStr, databaseAnalyzeFlagsStr string) ma
 		}
 	}
 
+	removeDuplicateFlags(jointFlags, longShortFlagsMap)
 	return jointFlags
+}
+
+func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]string) {
+	for longFlag, correspondingShortFlag := range shortFlags {
+		if _, exists := customFlags[longFlag]; exists {
+			delete(customFlags, correspondingShortFlag)
+		}
+	}
 }
 
 func GetRamAndThreadsFromConfig(threads, ram string, customFlags map[string]string) []string {
 	params := make([]string, 0, 2)
-	if len(threads) > 0 && !CheckFlags(customFlags, []string{"--threads", "-j"}) {
+	if len(threads) > 0 && !CheckIfFlagSetByUser(customFlags, []string{"--threads", "-j"}) {
 		params = append(params, "--threads="+threads)
 	}
-	if len(ram) > 0 && !CheckFlags(customFlags, []string{"--ram", "-M"}) {
+	if len(ram) > 0 && !CheckIfFlagSetByUser(customFlags, []string{"--ram", "-M"}) {
 		params = append(params, "--ram="+ram)
 	}
 	return params
 }
+
+//func TestValidateFlags(t *testing.T) {
+//	t.Parallel()
+//
+//	t.Run("All flags are valid", func(t *testing.T) {
+//		input := "--flag1=1 --flag2=2 --flag3=3"
+//		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
+//		expected := []string{"--flag1=1", "--flag2=2", "--flag3=3"}
+//		result, err := validateFlags(input, flags)
+//		assert.NoError(t, err)
+//		assert.Equal(t, expected, result)
+//	})
+//	t.Run("No valid flags", func(t *testing.T) {
+//		input := "--flag1=1 --flag2=2 --flag3=3"
+//		flags := map[string]bool{}
+//		expected := []string{}
+//		result, err := validateFlags(input, flags)
+//		assert.NoError(t, err)
+//		assert.Equal(t, expected, result)
+//	})
+//	t.Run("Some flags are valid", func(t *testing.T) {
+//		input := "--flag1=1 --flag2=2 --flag3=3"
+//		flags := map[string]bool{"--flag1": true, "--flag3": true}
+//		expected := []string{"--flag1=1", "--flag3=3"}
+//		result, err := validateFlags(input, flags)
+//		assert.NoError(t, err)
+//		assert.Equal(t, expected, result)
+//	})
+//	t.Run("Flags without values", func(t *testing.T) {
+//		input := "--flag1 --flag2 --flag3"
+//		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
+//		expected := []string{"--flag1", "--flag2", "--flag3"}
+//		result, err := validateFlags(input, flags)
+//		assert.NoError(t, err)
+//		assert.Equal(t, expected, result)
+//	})
+//	t.Run("Empty input", func(t *testing.T) {
+//		input := ""
+//		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
+//		expected := []string{}
+//		result, err := validateFlags(input, flags)
+//		assert.NoError(t, err)
+//		assert.Equal(t, expected, result)
+//	})
+//}

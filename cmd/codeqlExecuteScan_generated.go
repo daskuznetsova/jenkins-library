@@ -29,7 +29,7 @@ type codeqlExecuteScanOptions struct {
 	ModulePath                  string `json:"modulePath,omitempty"`
 	Database                    string `json:"database,omitempty"`
 	QuerySuite                  string `json:"querySuite,omitempty"`
-	UploadResults               bool   `json:"uploadResults,omitempty"`
+	UploadResults               bool   `json:"runGithubUploadResults,omitempty"`
 	SarifCheckMaxRetries        int    `json:"sarifCheckMaxRetries,omitempty"`
 	SarifCheckRetryInterval     int    `json:"sarifCheckRetryInterval,omitempty"`
 	TargetGithubRepoURL         string `json:"targetGithubRepoURL,omitempty"`
@@ -255,7 +255,7 @@ func addCodeqlExecuteScanFlags(cmd *cobra.Command, stepConfig *codeqlExecuteScan
 	cmd.Flags().StringVar(&stepConfig.ModulePath, "modulePath", `./`, "Allows providing the path for the module to scan")
 	cmd.Flags().StringVar(&stepConfig.Database, "database", `codeqlDB`, "Path to the CodeQL database to create. This directory will be created, and must not already exist.")
 	cmd.Flags().StringVar(&stepConfig.QuerySuite, "querySuite", os.Getenv("PIPER_querySuite"), "The name of a CodeQL query suite. If omitted, the default query suite for the language of the database being analyzed will be used.")
-	cmd.Flags().BoolVar(&stepConfig.UploadResults, "uploadResults", false, "Allows you to upload codeql SARIF results to your github project. You will need to set githubToken for this.")
+	cmd.Flags().BoolVar(&stepConfig.UploadResults, "runGithubUploadResults", false, "Allows you to upload codeql SARIF results to your github project. You will need to set githubToken for this.")
 	cmd.Flags().IntVar(&stepConfig.SarifCheckMaxRetries, "sarifCheckMaxRetries", 10, "Maximum number of retries when waiting for the server to finish processing the SARIF upload.")
 	cmd.Flags().IntVar(&stepConfig.SarifCheckRetryInterval, "sarifCheckRetryInterval", 30, "Interval in seconds between retries when waiting for the server to finish processing the SARIF upload.")
 	cmd.Flags().StringVar(&stepConfig.TargetGithubRepoURL, "targetGithubRepoURL", os.Getenv("PIPER_targetGithubRepoURL"), "Target github repo url. Only relevant, if project uses a combination of Piper and non-GitHub SCM.")
@@ -369,7 +369,7 @@ func codeqlExecuteScanMetadata() config.StepData {
 						Default:     os.Getenv("PIPER_querySuite"),
 					},
 					{
-						Name:        "uploadResults",
+						Name:        "runGithubUploadResults",
 						ResourceRef: []config.ResourceReference{},
 						Scope:       []string{"PARAMETERS", "STAGES", "STEPS"},
 						Type:        "bool",

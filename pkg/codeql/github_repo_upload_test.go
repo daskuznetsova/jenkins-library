@@ -130,13 +130,13 @@ func TestDoesRefExist(t *testing.T) {
 		assert.Error(t, err)
 
 	})
-	t.Run("Ref exists", func(t *testing.T) {
+	t.Run("AnalyzedRef exists", func(t *testing.T) {
 		ghUploader := newGitMock(refsHeads+exists, exists)
 		ok, _, err := doesRefExist(ghUploader, refsHeads+exists)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 	})
-	t.Run("Ref doesn't exist", func(t *testing.T) {
+	t.Run("AnalyzedRef doesn't exist", func(t *testing.T) {
 		ghUploader := newGitMock(refsHeads+notExists, exists)
 		ok, _, err := doesRefExist(ghUploader, refsHeads+notExists)
 		assert.NoError(t, err)

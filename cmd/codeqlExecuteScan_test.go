@@ -4,13 +4,12 @@
 package cmd
 
 import (
+	"os"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/SAP/jenkins-library/pkg/codeql"
 	"github.com/SAP/jenkins-library/pkg/mock"
-	"github.com/SAP/jenkins-library/pkg/orchestrator"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -76,231 +75,271 @@ func TestRunCodeqlExecuteScan(t *testing.T) {
 	})
 }
 
-func TestGetGitRepoInfo(t *testing.T) {
-	t.Run("Valid https URL1", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/fortify.git", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Valid https URL2", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/fortify", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-	t.Run("Valid https URL1 with dots", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/com.sap.fortify.git", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Valid https URL2 with dots", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/com.sap.fortify", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-	t.Run("Valid https URL1 with username and token", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("https://username:token@github.hello.test/Testing/fortify.git", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Valid https URL2 with username and token", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("https://username:token@github.hello.test/Testing/fortify", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Invalid https URL as no org/Owner passed", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		assert.Error(t, getGitRepoInfo("https://github.com/fortify", &repoInfo))
-	})
-
-	t.Run("Invalid URL as no protocol passed", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		assert.Error(t, getGitRepoInfo("github.hello.test/Testing/fortify", &repoInfo))
-	})
-
-	t.Run("Valid ssh URL1", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/fortify.git", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Valid ssh URL2", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/fortify", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-	t.Run("Valid ssh URL1 with dots", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/com.sap.fortify.git", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Valid ssh URL2 with dots", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/com.sap.fortify", &repoInfo)
-		assert.NoError(t, err)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-	})
-
-	t.Run("Invalid ssh URL as no org/Owner passed", func(t *testing.T) {
-		var repoInfo codeql.RepoInfo
-		assert.Error(t, getGitRepoInfo("git@github.com/fortify", &repoInfo))
-	})
-}
-
-func TestInitGitInfo(t *testing.T) {
-	t.Run("Valid URL1", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/codeql.git", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-		assert.Equal(t, "codeql", repoInfo.Repo)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-	})
-
-	t.Run("Valid URL2", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/codeql", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-		assert.Equal(t, "codeql", repoInfo.Repo)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-	})
-
-	t.Run("Valid url with dots URL1", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/com.sap.codeql.git", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-		assert.Equal(t, "com.sap.codeql", repoInfo.Repo)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-	})
-
-	t.Run("Valid url with dots URL2", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test/Testing/com.sap.codeql", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-		assert.Equal(t, "com.sap.codeql", repoInfo.Repo)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-	})
-
-	t.Run("Valid url with username and token URL1", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://username:token@github.hello.test/Testing/codeql.git", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-		assert.Equal(t, "codeql", repoInfo.Repo)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-	})
-
-	t.Run("Valid url with username and token URL2", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://username:token@github.hello.test/Testing/codeql", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "Testing", repoInfo.Owner)
-		assert.Equal(t, "codeql", repoInfo.Repo)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
-	})
-
-	t.Run("Invalid URL with no org/reponame", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{Repository: "https://github.hello.test", AnalyzedRef: "refs/head/branch", CommitID: "abcd1234"}
-		repoInfo, err := initGitInfo(&config)
-		assert.NoError(t, err)
-		_, err = orchestrator.GetOrchestratorConfigProvider(nil)
-		assert.Equal(t, "abcd1234", repoInfo.CommitId)
-		assert.Equal(t, "refs/head/branch", repoInfo.Ref)
-		if err != nil {
-			assert.Equal(t, "", repoInfo.Owner)
-			assert.Equal(t, "", repoInfo.Repo)
-			assert.Equal(t, "", repoInfo.ServerUrl)
-		}
-	})
-}
-
-func TestWaitSarifUploaded(t *testing.T) {
+func TestPrepareCmdForDatabaseAnalyze(t *testing.T) {
 	t.Parallel()
-	config := codeqlExecuteScanOptions{SarifCheckRetryInterval: 1, SarifCheckMaxRetries: 5}
-	t.Run("Fast complete upload", func(t *testing.T) {
-		codeqlScanAuditMock := CodeqlSarifUploaderMock{counter: 0}
-		timerStart := time.Now()
-		err := waitSarifUploaded(&config, &codeqlScanAuditMock)
-		assert.Less(t, time.Now().Sub(timerStart), time.Second)
+
+	t.Run("No additional flags, no querySuite, sarif format", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database: "codeqlDB",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(map[string]string{}, config, "sarif-latest", "codeqlReport.sarif")
 		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 5, len(cmd))
+		assert.Equal(t, "database analyze --format=sarif-latest --output=codeqlReport.sarif codeqlDB", strings.Join(cmd, " "))
 	})
-	t.Run("Long completed upload", func(t *testing.T) {
-		codeqlScanAuditMock := CodeqlSarifUploaderMock{counter: 2}
-		timerStart := time.Now()
-		err := waitSarifUploaded(&config, &codeqlScanAuditMock)
-		assert.GreaterOrEqual(t, time.Now().Sub(timerStart), time.Second*2)
+
+	t.Run("No additional flags, no querySuite, csv format", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database: "codeqlDB",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(map[string]string{}, config, "csv", "codeqlReport.csv")
 		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 5, len(cmd))
+		assert.Equal(t, "database analyze --format=csv --output=codeqlReport.csv codeqlDB", strings.Join(cmd, " "))
 	})
-	t.Run("Failed upload", func(t *testing.T) {
-		codeqlScanAuditMock := CodeqlSarifUploaderMock{counter: -1}
-		err := waitSarifUploaded(&config, &codeqlScanAuditMock)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to upload sarif file")
-	})
-	t.Run("Error while checking sarif uploading", func(t *testing.T) {
-		codeqlScanAuditErrorMock := CodeqlSarifUploaderErrorMock{counter: -1}
-		err := waitSarifUploaded(&config, &codeqlScanAuditErrorMock)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "test error")
-	})
-	t.Run("Completed upload after getting errors from server", func(t *testing.T) {
-		codeqlScanAuditErrorMock := CodeqlSarifUploaderErrorMock{counter: 3}
-		err := waitSarifUploaded(&config, &codeqlScanAuditErrorMock)
+
+	t.Run("No additional flags, set querySuite", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			QuerySuite: "security.ql",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(map[string]string{}, config, "sarif-latest", "codeqlReport.sarif")
 		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 6, len(cmd))
+		assert.Equal(t, "database analyze --format=sarif-latest --output=codeqlReport.sarif codeqlDB security.ql", strings.Join(cmd, " "))
 	})
-	t.Run("Max retries reached", func(t *testing.T) {
-		codeqlScanAuditErrorMock := CodeqlSarifUploaderErrorMock{counter: 6}
-		err := waitSarifUploaded(&config, &codeqlScanAuditErrorMock)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "max retries reached")
+
+	t.Run("No custom flags, flags from config", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			QuerySuite: "security.ql",
+			Threads:    "1",
+			Ram:        "2000",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(map[string]string{}, config, "sarif-latest", "codeqlReport.sarif")
+		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+		assert.Equal(t, "database analyze --format=sarif-latest --output=codeqlReport.sarif codeqlDB --threads=1 --ram=2000 security.ql", strings.Join(cmd, " "))
+	})
+
+	t.Run("Custom flags, overwriting threads", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			QuerySuite: "security.ql",
+			Threads:    "1",
+			Ram:        "2000",
+		}
+		customFlags := map[string]string{
+			"--threads": "2",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(customFlags, config, "sarif-latest", "codeqlReport.sarif")
+		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+		assert.Equal(t, "database analyze --format=sarif-latest --output=codeqlReport.sarif codeqlDB --ram=2000 --threads=2 security.ql", strings.Join(cmd, " "))
+	})
+
+	t.Run("Custom flags, overwriting threads (-j)", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			QuerySuite: "security.ql",
+			Threads:    "1",
+			Ram:        "2000",
+		}
+		customFlags := map[string]string{
+			"-j": "2",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(customFlags, config, "sarif-latest", "codeqlReport.sarif")
+		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+		assert.Equal(t, "database analyze --format=sarif-latest --output=codeqlReport.sarif codeqlDB --ram=2000 -j=2 security.ql", strings.Join(cmd, " "))
+	})
+
+	t.Run("Custom flags, no overwriting", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{
+			Database:   "codeqlDB",
+			QuerySuite: "security.ql",
+			Threads:    "1",
+			Ram:        "2000",
+		}
+		customFlags := map[string]string{
+			"--no-download": "",
+		}
+		cmd, err := prepareCmdForDatabaseAnalyze(customFlags, config, "sarif-latest", "codeqlReport.sarif")
+		assert.NoError(t, err)
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 9, len(cmd))
+		assert.Equal(t, "database analyze --format=sarif-latest --output=codeqlReport.sarif codeqlDB --threads=1 --ram=2000 --no-download security.ql", strings.Join(cmd, " "))
+	})
+}
+
+func TestAppendCodeqlQuery(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Empty query", func(t *testing.T) {
+		cmd := []string{"database", "analyze"}
+		query := ""
+		cmd = appendCodeqlQuery(cmd, query)
+		assert.Equal(t, 2, len(cmd))
+	})
+
+	t.Run("Not empty query", func(t *testing.T) {
+		cmd := []string{"database", "analyze"}
+		query := "java-extended.ql"
+		cmd = appendCodeqlQuery(cmd, query)
+		assert.Equal(t, 3, len(cmd))
+	})
+}
+
+func TestPrepareCmdForUploadResults(t *testing.T) {
+	t.Parallel()
+
+	config := &codeqlExecuteScanOptions{
+		ModulePath: "./",
+	}
+
+	t.Run("All configs are set", func(t *testing.T) {
+		repoInfo := &codeql.RepoInfo{
+			CommitId:    "commitId",
+			ServerUrl:   "http://github.com",
+			Repo:        "repo",
+			Owner:       "owner",
+			AnalyzedRef: "refs/heads/branch",
+		}
+		cmd := prepareCmdForUploadResults(config, repoInfo, "token")
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 8, len(cmd))
+	})
+
+	t.Run("Configs are set partially", func(t *testing.T) {
+		repoInfo := &codeql.RepoInfo{
+			CommitId:  "commitId",
+			ServerUrl: "http://github.com",
+			Repo:      "repo",
+		}
+		cmd := prepareCmdForUploadResults(config, repoInfo, "token")
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 6, len(cmd))
+	})
+
+	t.Run("Empty token", func(t *testing.T) {
+		repoInfo := &codeql.RepoInfo{
+			CommitId:    "commitId",
+			ServerUrl:   "http://github.com",
+			Repo:        "repo",
+			Owner:       "owner",
+			AnalyzedRef: "refs/heads/branch",
+		}
+		cmd := prepareCmdForUploadResults(config, repoInfo, "")
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 7, len(cmd))
+	})
+
+	t.Run("Empty configs and token", func(t *testing.T) {
+		repoInfo := &codeql.RepoInfo{}
+		cmd := prepareCmdForUploadResults(config, repoInfo, "")
+		assert.NotEmpty(t, cmd)
+		assert.Equal(t, 3, len(cmd))
+	})
+}
+
+func TestGetLangFromBuildTool(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Build tool Maven", func(t *testing.T) {
+		assert.Equal(t, "java", getLangFromBuildTool("maven"))
+	})
+	t.Run("Build tool Pip", func(t *testing.T) {
+		assert.Equal(t, "python", getLangFromBuildTool("pip"))
+	})
+	t.Run("Build tool Npm", func(t *testing.T) {
+		assert.Equal(t, "javascript", getLangFromBuildTool("npm"))
+	})
+	t.Run("Build tool Yarn", func(t *testing.T) {
+		assert.Equal(t, "javascript", getLangFromBuildTool("yarn"))
+	})
+	t.Run("Build tool Golang", func(t *testing.T) {
+		assert.Equal(t, "go", getLangFromBuildTool("golang"))
+	})
+	t.Run("Build tool Unknown", func(t *testing.T) {
+		assert.Equal(t, "", getLangFromBuildTool("unknown"))
+	})
+}
+
+func TestGetToken(t *testing.T) {
+	t.Run("Token is set in config", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{GithubToken: "token"}
+		os.Setenv("GITHUB_TOKEN", "token_from_env")
+		hasToken, token := getToken(config)
+		os.Clearenv()
+		assert.True(t, hasToken)
+		assert.NotEmpty(t, token)
+		assert.Equal(t, "token", token)
+	})
+
+	t.Run("Token is set in env", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{}
+		os.Setenv("GITHUB_TOKEN", "token_from_env")
+		hasToken, token := getToken(config)
+		os.Clearenv()
+		assert.True(t, hasToken)
+		assert.NotEmpty(t, token)
+		assert.Equal(t, "token_from_env", token)
+	})
+
+	t.Run("Token is not set", func(t *testing.T) {
+		config := &codeqlExecuteScanOptions{}
+		hasToken, token := getToken(config)
+		assert.False(t, hasToken)
+		assert.Empty(t, token)
+	})
+}
+
+func TestCheckForCompliance(t *testing.T) {
+	t.Parallel()
+
+	config := &codeqlExecuteScanOptions{VulnerabilityThresholdTotal: 0}
+	repoInfo := &codeql.RepoInfo{
+		FullUrl:     "http://github.com/Test/repo",
+		AnalyzedRef: "refs/heads/branch",
+	}
+
+	t.Run("Project is compliant", func(t *testing.T) {
+		scanResults := []codeql.CodeqlFindings{
+			{
+				ClassificationName: codeql.AuditAll,
+				Total:              10,
+				Audited:            10,
+			},
+		}
+		assert.NoError(t, checkForCompliance(scanResults, config, repoInfo))
+	})
+
+	t.Run("Project is not compliant", func(t *testing.T) {
+		scanResults := []codeql.CodeqlFindings{
+			{
+				ClassificationName: codeql.AuditAll,
+				Total:              20,
+				Audited:            10,
+			},
+		}
+		assert.Error(t, checkForCompliance(scanResults, config, repoInfo))
+	})
+
+	t.Run("Don't check Optional findings", func(t *testing.T) {
+		scanResults := []codeql.CodeqlFindings{
+			{
+				ClassificationName: codeql.Optional,
+				Total:              10,
+				Audited:            0,
+			},
+		}
+		assert.NoError(t, checkForCompliance(scanResults, config, repoInfo))
 	})
 }
 
@@ -308,98 +347,176 @@ func TestGetMavenSettings(t *testing.T) {
 	t.Parallel()
 	t.Run("No maven", func(t *testing.T) {
 		config := codeqlExecuteScanOptions{BuildTool: "npm"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, "", params)
 	})
 
 	t.Run("No build command", func(t *testing.T) {
 		config := codeqlExecuteScanOptions{BuildTool: "maven"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		params := getMavenSettings("", &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, "", params)
 	})
 
 	t.Run("Project Settings file", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", ProjectSettingsFile: "test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --settings=test.xml", params)
 	})
 
-	t.Run("Skip Project Settings file incase already used", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install --settings=project.xml", ProjectSettingsFile: "test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+	t.Run("Skip Project Settings file in case already used", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "test.xml"}
+		buildCmd := "mvn clean install --settings=project.xml"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, "", params)
 	})
 
 	t.Run("Global Settings file", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "gloabl.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
-		assert.Equal(t, " --global-settings=gloabl.xml", params)
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "global.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, " --global-settings=global.xml", params)
 	})
 
 	t.Run("Project and Global Settings file", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", ProjectSettingsFile: "test.xml", GlobalSettingsFile: "global.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "test.xml", GlobalSettingsFile: "global.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=global.xml --settings=test.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile https url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", ProjectSettingsFile: "https://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "https://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --settings=.pipeline/mavenProjectSettings.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile http url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --settings=.pipeline/mavenProjectSettings.xml", params)
 	})
 
 	t.Run("GlobalSettingsFile https url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "https://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "https://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=.pipeline/mavenGlobalSettings.xml", params)
 	})
 
 	t.Run("GlobalSettingsFile http url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "http://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "http://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=.pipeline/mavenGlobalSettings.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile and GlobalSettingsFile https url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "https://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "https://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=.pipeline/mavenGlobalSettings.xml --settings=.pipeline/mavenProjectSettings.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile and GlobalSettingsFile http url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "http://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "http://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=.pipeline/mavenGlobalSettings.xml --settings=.pipeline/mavenProjectSettings.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile file and GlobalSettingsFile https url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "https://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "https://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=.pipeline/mavenGlobalSettings.xml --settings=test.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile file and GlobalSettingsFile https url", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "http://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "http://jenkins-sap-test.com/test.xml", ProjectSettingsFile: "test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=.pipeline/mavenGlobalSettings.xml --settings=test.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile https url and GlobalSettingsFile file", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "global.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "global.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=global.xml --settings=.pipeline/mavenProjectSettings.xml", params)
 	})
 
 	t.Run("ProjectSettingsFile http url and GlobalSettingsFile file", func(t *testing.T) {
-		config := codeqlExecuteScanOptions{BuildTool: "maven", BuildCommand: "mvn clean install", GlobalSettingsFile: "global.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
-		params := getMavenSettings(&config, newCodeqlExecuteScanTestsUtils())
+		config := codeqlExecuteScanOptions{BuildTool: "maven", GlobalSettingsFile: "global.xml", ProjectSettingsFile: "http://jenkins-sap-test.com/test.xml"}
+		buildCmd := "mvn clean install"
+		params := getMavenSettings(buildCmd, &config, newCodeqlExecuteScanTestsUtils())
 		assert.Equal(t, " --global-settings=global.xml --settings=.pipeline/mavenProjectSettings.xml", params)
+	})
+}
+
+func TestGetUpdatedCmdFlagsWithMavenSettings(t *testing.T) {
+	t.Parallel()
+
+	t.Run("No maven", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "npm"}
+		customFlags := map[string]string{
+			"--command": "mvn clean install",
+		}
+		updateCmdFlagsWithMavenSettings(&config, customFlags, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, "mvn clean install", customFlags["--command"])
+		assert.Equal(t, "", customFlags["-c"])
+	})
+
+	t.Run("No custom flags with build command provided", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "test.xml", GlobalSettingsFile: "global.xml"}
+		customFlags := map[string]string{}
+		updateCmdFlagsWithMavenSettings(&config, customFlags, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, "", customFlags["--command"])
+		assert.Equal(t, "", customFlags["-c"])
+	})
+
+	t.Run("Both --command and -c flags are set, no settings file provided", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "maven"}
+		customFlags := map[string]string{
+			"--command": "mvn clean install",
+			"-c":        "mvn clean install -DskipTests",
+		}
+		updateCmdFlagsWithMavenSettings(&config, customFlags, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, "mvn clean install", customFlags["--command"])
+		assert.Equal(t, "", customFlags["-c"])
+	})
+
+	t.Run("Only -c flag is set, no settings file provided", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "maven"}
+		customFlags := map[string]string{
+			"-c": "mvn clean install -DskipTests",
+		}
+		updateCmdFlagsWithMavenSettings(&config, customFlags, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, "mvn clean install -DskipTests", customFlags["--command"])
+		assert.Equal(t, "", customFlags["-c"])
+	})
+
+	t.Run("Update custom command with GlobalSettingsFile and ProjectSettingsFile", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "test.xml", GlobalSettingsFile: "global.xml"}
+		customFlags := map[string]string{
+			"--command": "mvn clean install",
+		}
+		updateCmdFlagsWithMavenSettings(&config, customFlags, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, "mvn clean install --global-settings=global.xml --settings=test.xml", customFlags["--command"])
+		assert.Equal(t, "", customFlags["-c"])
+	})
+
+	t.Run("Custom command has --global-settings and --settings", func(t *testing.T) {
+		config := codeqlExecuteScanOptions{BuildTool: "maven", ProjectSettingsFile: "test.xml", GlobalSettingsFile: "global.xml"}
+		customFlags := map[string]string{
+			"--command": "mvn clean install --settings=test1.xml --global-settings=global1.xml",
+		}
+		updateCmdFlagsWithMavenSettings(&config, customFlags, newCodeqlExecuteScanTestsUtils())
+		assert.Equal(t, "mvn clean install --settings=test1.xml --global-settings=global1.xml", customFlags["--command"])
+		assert.Equal(t, "", customFlags["-c"])
 	})
 }
 
@@ -409,10 +526,16 @@ func TestAddDataToInfluxDB(t *testing.T) {
 	repoScanUrl := "https://github.htllo.test/Testing/codeql/security/code-scanning"
 	querySuite := "security.ql"
 
+	repoInfo := &codeql.RepoInfo{
+		FullUrl: repoUrl,
+		FullRef: repoRef,
+		ScanUrl: repoScanUrl,
+	}
+
 	t.Run("No findings", func(t *testing.T) {
 		scanResults := []codeql.CodeqlFindings{}
 		influx := &codeqlExecuteScanInflux{}
-		addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite, scanResults, influx)
+		addDataToInfluxDB(repoInfo, querySuite, scanResults, influx)
 		assert.Equal(t, repoUrl, influx.codeql_data.fields.repositoryURL)
 		assert.Equal(t, repoRef, influx.codeql_data.fields.repositoryReferenceURL)
 		assert.Equal(t, repoScanUrl, influx.codeql_data.fields.codeScanningLink)
@@ -432,7 +555,7 @@ func TestAddDataToInfluxDB(t *testing.T) {
 			},
 		}
 		influx := &codeqlExecuteScanInflux{}
-		addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite, scanResults, influx)
+		addDataToInfluxDB(repoInfo, querySuite, scanResults, influx)
 		assert.Equal(t, repoUrl, influx.codeql_data.fields.repositoryURL)
 		assert.Equal(t, repoRef, influx.codeql_data.fields.repositoryReferenceURL)
 		assert.Equal(t, repoScanUrl, influx.codeql_data.fields.codeScanningLink)
@@ -452,7 +575,7 @@ func TestAddDataToInfluxDB(t *testing.T) {
 			},
 		}
 		influx := &codeqlExecuteScanInflux{}
-		addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite, scanResults, influx)
+		addDataToInfluxDB(repoInfo, querySuite, scanResults, influx)
 		assert.Equal(t, repoUrl, influx.codeql_data.fields.repositoryURL)
 		assert.Equal(t, repoRef, influx.codeql_data.fields.repositoryReferenceURL)
 		assert.Equal(t, repoScanUrl, influx.codeql_data.fields.codeScanningLink)
@@ -477,7 +600,7 @@ func TestAddDataToInfluxDB(t *testing.T) {
 			},
 		}
 		influx := &codeqlExecuteScanInflux{}
-		addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite, scanResults, influx)
+		addDataToInfluxDB(repoInfo, querySuite, scanResults, influx)
 		assert.Equal(t, repoUrl, influx.codeql_data.fields.repositoryURL)
 		assert.Equal(t, repoRef, influx.codeql_data.fields.repositoryReferenceURL)
 		assert.Equal(t, repoScanUrl, influx.codeql_data.fields.codeScanningLink)
@@ -487,104 +610,4 @@ func TestAddDataToInfluxDB(t *testing.T) {
 		assert.Equal(t, scanResults[1].Total, influx.codeql_data.fields.optionalTotal)
 		assert.Equal(t, scanResults[1].Audited, influx.codeql_data.fields.optionalAudited)
 	})
-}
-
-func TestValidateFlags(t *testing.T) {
-	t.Parallel()
-
-	t.Run("All flags are valid", func(t *testing.T) {
-		input := "--flag1=1 --flag2=2 --flag3=3"
-		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
-		expected := []string{"--flag1=1", "--flag2=2", "--flag3=3"}
-		result, err := validateFlags(input, flags)
-		assert.NoError(t, err)
-		assert.Equal(t, expected, result)
-	})
-	t.Run("No valid flags", func(t *testing.T) {
-		input := "--flag1=1 --flag2=2 --flag3=3"
-		flags := map[string]bool{}
-		expected := []string{}
-		result, err := validateFlags(input, flags)
-		assert.NoError(t, err)
-		assert.Equal(t, expected, result)
-	})
-	t.Run("Some flags are valid", func(t *testing.T) {
-		input := "--flag1=1 --flag2=2 --flag3=3"
-		flags := map[string]bool{"--flag1": true, "--flag3": true}
-		expected := []string{"--flag1=1", "--flag3=3"}
-		result, err := validateFlags(input, flags)
-		assert.NoError(t, err)
-		assert.Equal(t, expected, result)
-	})
-	t.Run("Flags without values", func(t *testing.T) {
-		input := "--flag1 --flag2 --flag3"
-		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
-		expected := []string{"--flag1", "--flag2", "--flag3"}
-		result, err := validateFlags(input, flags)
-		assert.NoError(t, err)
-		assert.Equal(t, expected, result)
-	})
-	t.Run("Empty input", func(t *testing.T) {
-		input := ""
-		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
-		expected := []string{}
-		result, err := validateFlags(input, flags)
-		assert.NoError(t, err)
-		assert.Equal(t, expected, result)
-	})
-}
-
-// Helper function to compare slices of strings
-func compareSlices(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-type CodeqlSarifUploaderMock struct {
-	counter int
-}
-
-func (c *CodeqlSarifUploaderMock) GetSarifStatus() (codeql.SarifFileInfo, error) {
-	if c.counter == 0 {
-		return codeql.SarifFileInfo{
-			ProcessingStatus: "complete",
-			Errors:           nil,
-		}, nil
-	}
-	if c.counter == -1 {
-		return codeql.SarifFileInfo{
-			ProcessingStatus: "failed",
-			Errors:           []string{"upload error"},
-		}, nil
-	}
-	c.counter--
-	return codeql.SarifFileInfo{
-		ProcessingStatus: "pending",
-		Errors:           nil,
-	}, nil
-}
-
-type CodeqlSarifUploaderErrorMock struct {
-	counter int
-}
-
-func (c *CodeqlSarifUploaderErrorMock) GetSarifStatus() (codeql.SarifFileInfo, error) {
-	if c.counter == -1 {
-		return codeql.SarifFileInfo{}, errors.New("test error")
-	}
-	if c.counter == 0 {
-		return codeql.SarifFileInfo{
-			ProcessingStatus: "complete",
-			Errors:           nil,
-		}, nil
-	}
-	c.counter--
-	return codeql.SarifFileInfo{ProcessingStatus: "Service unavailable"}, nil
 }
