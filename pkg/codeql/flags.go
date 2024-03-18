@@ -90,10 +90,6 @@ func ValidateFlags(input map[string]string, validFlags map[string]bool) ([]strin
 
 	for flag, value := range input {
 		if _, exists := validFlags[flag]; exists {
-			//appendFlag := flag
-			//if value != "" {
-			//	appendFlag = appendFlag + "=" + value
-			//}
 			params = append(params, value)
 		}
 	}

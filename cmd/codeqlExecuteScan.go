@@ -117,11 +117,6 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		reports = append(reports, piperutils.Path{Target: toolRecordFileName})
 	}
 
-	log.Entry().Debug("Reports list:")
-	for _, r := range reports {
-		log.Entry().Debugf("Name %s, target %s, scope %s", r.Name, r.Target, r.Scope)
-	}
-
 	return reports, nil
 }
 
