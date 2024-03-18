@@ -127,6 +127,11 @@ func runDatabaseCreate(config *codeqlExecuteScanOptions, customFlags map[string]
 		log.Entry().Error("failed to prepare command for codeql database create")
 		return err
 	}
+	for i, c := range cmd {
+		if strings.TrimSpace(c) == "" {
+			cmd = append(cmd[:i], cmd[i+1:]...)
+		}
+	}
 	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
 		log.Entry().Error("failed running command codeql database create")
 		return err
