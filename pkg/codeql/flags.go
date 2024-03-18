@@ -4,75 +4,6 @@ import (
 	"strings"
 )
 
-//var DatabaseCreateFlags = map[string]bool{
-//	"--no-db-cluster":           true,
-//	"--db-cluster":              true,
-//	"--language":                true,
-//	"-l":                        true,
-//	"--command":                 true,
-//	"-c":                        true,
-//	"--source-root":             true,
-//	"-s":                        true,
-//	"--github-url":              true,
-//	"-g":                        true,
-//	"--mode":                    true,
-//	"-m":                        true,
-//	"--cleanup-upgrade-backups": true,
-//	"--extractor-option":        true,
-//	"-O":                        true,
-//	"--extractor-options-file":  true,
-//	"--registries-auth-stdin":   true,
-//	"--github-auth-stdin":       true,
-//	"-a":                        true,
-//	"--threads":                 true,
-//	"--ram":                     true,
-//	"-j":                        true,
-//	"-M":                        true,
-//	"--search-path":             true,
-//	"--max-disk-cache":          true,
-//}
-//
-//var DatabaseAnalyzeFlags = map[string]bool{
-//	"--no-rerun":                     true,
-//	"--rerun":                        true,
-//	"--no-print-diagnostics-summary": true,
-//	"--no-print-metrics-summary":     true,
-//	"--max-paths":                    true,
-//	"--sarif-add-file-contents":      true,
-//	"--sarif-add-snippets":           true,
-//	"--sarif-add-query-help":         true,
-//	"--sarif-group-rules-by-pack":    true,
-//	"--sarif-multicause-markdown":    true,
-//	"--no-sarif-add-file-contents":   true,
-//	"--no-sarif-add-snippets":        true,
-//	"--no-sarif-add-query-help":      true,
-//	"--no-sarif-group-rules-by-pack": true,
-//	"--no-sarif-multicause-markdown": true,
-//	"--no-group-results":             true,
-//	"--csv-location-format":          true,
-//	"--dot-location-url-format":      true,
-//	"--sarif-category":               true,
-//	"--no-download":                  true,
-//	"--download":                     true,
-//	"--external":                     true,
-//	"--warnings":                     true,
-//	"--no-debug-info":                true,
-//	//"--no-fast-compilation":          true,	// deprecated
-//	"--no-local-checking": true,
-//	//"--fast-compilation":             true,	// deprecated
-//	"--local-checking":           true,
-//	"--no-metadata-verification": true,
-//	"--additional-packs":         true,
-//	"--registries-auth-stdin":    true,
-//	"--github-auth-stdin":        true,
-//	"--threads":                  true,
-//	"--ram":                      true,
-//	"-j":                         true,
-//	"-M":                         true,
-//	"--search-path":              true,
-//	"--max-disk-cache":           true,
-//}
-
 var longShortFlagsMap = map[string]string{
 	"--language":          "-l",
 	"--command":           "-c",
@@ -89,11 +20,7 @@ func AppendCustomFlags(input map[string]string) ([]string, error) {
 	params := []string{}
 
 	for _, value := range input {
-		//if _, exists := validFlags[flag]; exists {
 		params = append(params, value)
-		//} else {
-		//	log.Entry().Warnf("Unknown flag %s will be missed", flag)
-		//}
 	}
 
 	return params, nil
@@ -115,20 +42,20 @@ func AppendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag []str
 	return cmd
 }
 
-func ParseCustomFlags(databaseCreateFlagsStr, databaseAnalyzeFlagsStr string) map[string]string {
-	flagStrings := []string{databaseCreateFlagsStr, databaseAnalyzeFlagsStr}
-	jointFlags := make(map[string]string)
+func ParseCustomFlags(flagsStr string) map[string]string {
+	flagsMap := make(map[string]string)
 
-	for _, flagString := range flagStrings {
-		individualFlags := strings.Fields(flagString)
-		for _, flag := range individualFlags {
-			flagName := strings.Split(flag, "=")[0]
-			jointFlags[flagName] = flag
+	for _, flag := range strings.Fields(flagsStr) {
+		if strings.Contains(flag, "=") {
+			split := strings.SplitN(flag, "=", 2)
+			flagsMap[split[0]] = flag
+		} else {
+			flagsMap[flag] = flag
 		}
 	}
 
-	removeDuplicateFlags(jointFlags, longShortFlagsMap)
-	return jointFlags
+	removeDuplicateFlags(flagsMap, longShortFlagsMap)
+	return flagsMap
 }
 
 func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]string) {

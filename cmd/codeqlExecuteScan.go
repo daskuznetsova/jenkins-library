@@ -60,11 +60,11 @@ func codeqlExecuteScan(config codeqlExecuteScanOptions, telemetryData *telemetry
 
 func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
 	printCodeqlImageVersion()
-	customFlags := codeql.ParseCustomFlags(config.DatabaseCreateFlags, config.DatabaseAnalyzeFlags)
 
 	var reports []piperutils.Path
 
-	err := runDatabaseCreate(config, customFlags, utils)
+	dbCreateCustomFlags := codeql.ParseCustomFlags(config.DatabaseCreateFlags)
+	err := runDatabaseCreate(config, dbCreateCustomFlags, utils)
 	if err != nil {
 		log.Entry().WithError(err).Error("failed to create codeql database")
 		return reports, err
@@ -76,7 +76,8 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		return reports, err
 	}
 
-	scanReports, err := runDatabaseAnalyze(config, customFlags, utils)
+	dbAnalyzeCustomFlags := codeql.ParseCustomFlags(config.DatabaseAnalyzeFlags)
+	scanReports, err := runDatabaseAnalyze(config, dbAnalyzeCustomFlags, utils)
 	if err != nil {
 		log.Entry().WithError(err).Error("failed to analyze codeql database")
 		return reports, err
