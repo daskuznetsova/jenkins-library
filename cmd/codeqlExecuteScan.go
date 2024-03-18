@@ -241,9 +241,9 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 		updateCmdFlagsWithMavenSettings(config, customFlags, utils)
 	}
 
-	additionalFlags, err := codeql.AppendCustomFlags(customFlags, codeql.DatabaseCreateFlags)
+	additionalFlags, err := codeql.AppendCustomFlags(customFlags)
 	if err != nil {
-		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		log.Entry().WithError(err).Error("failed to append custom flags")
 		return nil, err
 	}
 	cmd = append(cmd, additionalFlags...)
@@ -256,9 +256,9 @@ func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlE
 	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
 	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
 
-	additionalFlags, err := codeql.AppendCustomFlags(customFlags, codeql.DatabaseAnalyzeFlags)
+	additionalFlags, err := codeql.AppendCustomFlags(customFlags)
 	if err != nil {
-		log.Entry().Errorf("failed to validate additional flags: %s", err)
+		log.Entry().WithError(err).Error("failed to append custom flags")
 		return nil, err
 	}
 	cmd = append(cmd, additionalFlags...)
@@ -311,7 +311,7 @@ func handleUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.Repo
 
 	hasToken, token := getToken(config)
 	if !hasToken {
-		return nil, nil, errors.New("failed running upload-results as githubToken was not specified")
+		return nil, nil, fmt.Errorf("failed running upload-results as githubToken was not specified")
 	}
 
 	err := uploadSarifResults(config, token, repoInfo, utils)
@@ -366,7 +366,7 @@ func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.Re
 
 	hasToken, token := getToken(config)
 	if !hasToken {
-		return errors.New("failed running upload db sources to GitHub as githubToken was not specified")
+		return fmt.Errorf("failed running upload db sources to GitHub as githubToken was not specified")
 	}
 	repoUploader, err := codeql.NewGitUploaderInstance(
 		token,
