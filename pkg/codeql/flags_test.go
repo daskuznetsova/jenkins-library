@@ -17,7 +17,7 @@ func TestValidateFlags(t *testing.T) {
 		}
 		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
 		expected := []string{"--flag1=1", "--flag2=2", "--flag3=3"}
-		result, err := ValidateFlags(input, flags)
+		result, err := AppendCustomFlags(input, flags)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
@@ -29,7 +29,7 @@ func TestValidateFlags(t *testing.T) {
 		}
 		flags := map[string]bool{}
 		expected := []string{}
-		result, err := ValidateFlags(input, flags)
+		result, err := AppendCustomFlags(input, flags)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
@@ -41,7 +41,7 @@ func TestValidateFlags(t *testing.T) {
 		}
 		flags := map[string]bool{"--flag1": true, "--flag3": true}
 		expected := []string{"--flag1=1", "--flag3=3"}
-		result, err := ValidateFlags(input, flags)
+		result, err := AppendCustomFlags(input, flags)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
@@ -53,7 +53,7 @@ func TestValidateFlags(t *testing.T) {
 		}
 		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
 		expected := []string{"--flag1", "--flag2", "--flag3"}
-		result, err := ValidateFlags(input, flags)
+		result, err := AppendCustomFlags(input, flags)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
@@ -61,7 +61,7 @@ func TestValidateFlags(t *testing.T) {
 		input := map[string]string{}
 		flags := map[string]bool{"--flag1": true, "--flag2": true, "--flag3": true}
 		expected := []string{}
-		result, err := ValidateFlags(input, flags)
+		result, err := AppendCustomFlags(input, flags)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})

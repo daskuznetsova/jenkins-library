@@ -241,7 +241,7 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 		updateCmdFlagsWithMavenSettings(config, customFlags, utils)
 	}
 
-	additionalFlags, err := codeql.ValidateFlags(customFlags, codeql.DatabaseCreateFlags)
+	additionalFlags, err := codeql.AppendCustomFlags(customFlags, codeql.DatabaseCreateFlags)
 	if err != nil {
 		log.Entry().Errorf("failed to validate additional flags: %s", err)
 		return nil, err
@@ -256,7 +256,7 @@ func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlE
 	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
 	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
 
-	additionalFlags, err := codeql.ValidateFlags(customFlags, codeql.DatabaseAnalyzeFlags)
+	additionalFlags, err := codeql.AppendCustomFlags(customFlags, codeql.DatabaseAnalyzeFlags)
 	if err != nil {
 		log.Entry().Errorf("failed to validate additional flags: %s", err)
 		return nil, err

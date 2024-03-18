@@ -85,7 +85,7 @@ var longShortFlagsMap = map[string]string{
 	"--ram":               "-M",
 }
 
-func ValidateFlags(input map[string]string, validFlags map[string]bool) ([]string, error) {
+func AppendCustomFlags(input map[string]string, validFlags map[string]bool) ([]string, error) {
 	params := []string{}
 
 	for flag, value := range input {
