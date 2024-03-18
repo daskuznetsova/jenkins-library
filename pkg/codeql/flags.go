@@ -79,15 +79,13 @@ func getFlags(input string) []string {
 			continue
 		}
 		if string(c) == "\"" || string(c) == "'" {
-			//if i == len(input)-1 {
-			//	continue
-			//}
-			flag += string(c)
-			if !isString {
-				isString = true
+			if i == len(input)-1 {
 				continue
 			}
-			if i != len(input)-1 {
+			if !isString {
+				isString = true
+
+			} else {
 				result = append(result, flag)
 				flag = ""
 				isFlagStarted = false
@@ -103,9 +101,9 @@ func getFlags(input string) []string {
 		}
 		flag += string(c)
 	}
-	if flag != "" {
-		result = append(result, flag)
-	}
+	//if flag != "" {
+	result = append(result, flag)
+	//}
 	return result
 }
 

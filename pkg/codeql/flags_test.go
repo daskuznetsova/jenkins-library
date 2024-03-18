@@ -79,6 +79,21 @@ func TestParseCustomFlags(t *testing.T) {
 		}
 	})
 
+	t.Run(".", func(t *testing.T) {
+		inputStr := "--no-db-cluster -l=java --threads=1 --command='mvn clean package -Dmaven.test.skip=true'"
+		expected := map[string]string{
+			"--no-db-cluster": "--no-db-cluster",
+			"-l":              "-l=java",
+			"--threads":       "--threads=1",
+			"--command":       "--command='mvn clean package -Dmaven.test.skip=true'",
+		}
+		result := ParseCustomFlags(inputStr)
+		assert.Equal(t, len(expected), len(result))
+		for k, v := range result {
+			assert.Equal(t, expected[k], v)
+		}
+	})
+
 	t.Run("Valid flags without values", func(t *testing.T) {
 		inputStr := "--flag1 -flag2 -f3"
 		expected := map[string]string{
