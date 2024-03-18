@@ -1,8 +1,6 @@
 package codeql
 
-import (
-	"strings"
-)
+import "strings"
 
 var longShortFlagsMap = map[string]string{
 	"--language":          "-l",
@@ -45,7 +43,15 @@ func AppendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag []str
 func ParseCustomFlags(flagsStr string) map[string]string {
 	flagsMap := make(map[string]string)
 
-	for _, flag := range strings.Fields(flagsStr) {
+	//for _, flag := range strings.Fields(flagsStr) {
+	//	if strings.Contains(flag, "=") {
+	//		split := strings.SplitN(flag, "=", 2)
+	//		flagsMap[split[0]] = flag
+	//	} else {
+	//		flagsMap[flag] = flag
+	//	}
+	//}
+	for _, flag := range getFlags(flagsStr) {
 		if strings.Contains(flag, "=") {
 			split := strings.SplitN(flag, "=", 2)
 			flagsMap[split[0]] = flag
@@ -56,6 +62,49 @@ func ParseCustomFlags(flagsStr string) map[string]string {
 
 	removeDuplicateFlags(flagsMap, longShortFlagsMap)
 	return flagsMap
+}
+
+func getFlags(input string) []string {
+	result := []string{}
+	isFlagStarted := false
+	isString := false
+	flag := ""
+	for i, c := range input {
+		if !isFlagStarted {
+			if string(c) == " " {
+				continue
+			}
+			flag += string(c)
+			isFlagStarted = true
+			continue
+		}
+		if string(c) == "\"" || string(c) == "'" {
+			//if i == len(input)-1 {
+			//	continue
+			//}
+			flag += string(c)
+			if !isString {
+				isString = true
+				continue
+			}
+			if i != len(input)-1 {
+				result = append(result, flag)
+				flag = ""
+				isFlagStarted = false
+				isString = false
+			}
+			continue
+		}
+		if string(c) == " " && !isString {
+			result = append(result, flag)
+			flag = ""
+			isFlagStarted = false
+			continue
+		}
+		flag += string(c)
+	}
+	result = append(result, flag)
+	return result
 }
 
 func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]string) {

@@ -107,16 +107,16 @@ func TestParseCustomFlags(t *testing.T) {
 		}
 	})
 
-	//t.Run("Valid flags with spaces in value", func(t *testing.T) {
-	//	inputStr := "--flag1='mvn install' --flag2='mvn clean install'"
-	//	expected := map[string]string{
-	//		"--flag1": "--flag1=mvn install",
-	//		"--flag2": "--flag2=mvn clean install",
-	//	}
-	//	result := ParseCustomFlags(inputStr)
-	//	assert.Equal(t, len(expected), len(result))
-	//	for k, v := range result {
-	//		assert.Equal(t, expected[k], v)
-	//	}
-	//})
+	t.Run("Valid flags with spaces in value", func(t *testing.T) {
+		inputStr := "--flag1='mvn install' --flag2='mvn clean install'"
+		expected := map[string]string{
+			"--flag1": "--flag1='mvn install'",
+			"--flag2": "--flag2='mvn clean install'",
+		}
+		result := ParseCustomFlags(inputStr)
+		assert.Equal(t, len(expected), len(result))
+		for k, v := range result {
+			assert.Equal(t, expected[k], v)
+		}
+	})
 }
