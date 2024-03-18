@@ -103,7 +103,9 @@ func getFlags(input string) []string {
 		}
 		flag += string(c)
 	}
-	result = append(result, flag)
+	if flag != "" {
+		result = append(result, flag)
+	}
 	return result
 }
 
