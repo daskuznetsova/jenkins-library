@@ -16,8 +16,7 @@ func TestAppendCustomFlags(t *testing.T) {
 			"--flag3": "3",
 		}
 		expected := []string{"--flag1=1", "--flag2=2", "--flag3=3"}
-		result, err := GetCustomFlags(input)
-		assert.NoError(t, err)
+		result := GetCustomFlags(input)
 		assert.Equal(t, expected, result)
 	})
 	t.Run("No valid flags", func(t *testing.T) {
@@ -27,8 +26,7 @@ func TestAppendCustomFlags(t *testing.T) {
 			"--flag3": "3",
 		}
 		expected := []string{}
-		result, err := GetCustomFlags(input)
-		assert.NoError(t, err)
+		result := GetCustomFlags(input)
 		assert.Equal(t, expected, result)
 	})
 	t.Run("Some flags are valid", func(t *testing.T) {
@@ -38,8 +36,7 @@ func TestAppendCustomFlags(t *testing.T) {
 			"--flag3": "3",
 		}
 		expected := []string{"--flag1=1", "--flag3=3"}
-		result, err := GetCustomFlags(input)
-		assert.NoError(t, err)
+		result := GetCustomFlags(input)
 		assert.Equal(t, expected, result)
 	})
 	t.Run("Flags without values", func(t *testing.T) {
@@ -49,15 +46,13 @@ func TestAppendCustomFlags(t *testing.T) {
 			"--flag3": "",
 		}
 		expected := []string{"--flag1", "--flag2", "--flag3"}
-		result, err := GetCustomFlags(input)
-		assert.NoError(t, err)
+		result := GetCustomFlags(input)
 		assert.Equal(t, expected, result)
 	})
 	t.Run("Empty input", func(t *testing.T) {
 		input := map[string]string{}
 		expected := []string{}
-		result, err := GetCustomFlags(input)
-		assert.NoError(t, err)
+		result := GetCustomFlags(input)
 		assert.Equal(t, expected, result)
 	})
 }

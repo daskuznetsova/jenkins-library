@@ -134,11 +134,6 @@ func runDatabaseCreate(config *codeqlExecuteScanOptions, customFlags map[string]
 		log.Entry().Error("failed to prepare command for codeql database create")
 		return err
 	}
-	//for i, c := range cmd {
-	//	if strings.TrimSpace(c) == "" {
-	//		cmd = append(cmd[:i], cmd[i+1:]...)
-	//	}
-	//}
 	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
 		log.Entry().Error("failed running command codeql database create")
 		return err
@@ -219,7 +214,7 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"--source-root", "-s"}, []string{"--source-root=."}, customFlags)
 	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"--working-dir"}, []string{"--working-dir", config.ModulePath}, customFlags)
 
-	if setLanguage := codeql.CheckIfFlagSetByUser(customFlags, []string{"--language", "-l"}); !setLanguage {
+	if !codeql.CheckIfFlagSetByUser(customFlags, []string{"--language", "-l"}) {
 		language := getLangFromBuildTool(config.BuildTool)
 		if len(language) == 0 && len(config.Language) == 0 {
 			if config.BuildTool == "custom" {
@@ -246,12 +241,7 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 		updateCmdFlagsWithMavenSettings(config, customFlags, utils)
 	}
 
-	additionalFlags, err := codeql.AppendCustomFlags(customFlags)
-	if err != nil {
-		log.Entry().WithError(err).Error("failed to append custom flags")
-		return nil, err
-	}
-	cmd = append(cmd, additionalFlags...)
+	cmd = append(cmd, codeql.GetCustomFlags(customFlags)...)
 
 	return cmd, nil
 }
@@ -261,12 +251,7 @@ func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlE
 	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
 	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
 
-	additionalFlags, err := codeql.AppendCustomFlags(customFlags)
-	if err != nil {
-		log.Entry().WithError(err).Error("failed to append custom flags")
-		return nil, err
-	}
-	cmd = append(cmd, additionalFlags...)
+	cmd = append(cmd, codeql.GetCustomFlags(customFlags)...)
 	cmd = appendCodeqlQuery(cmd, config.QuerySuite)
 	return cmd, nil
 }
