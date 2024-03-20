@@ -247,11 +247,11 @@ func executeAnalysis(format, reportName string, customFlags map[string]string, c
 
 func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) ([]string, error) {
 	cmd := []string{"database", "create", config.Database}
-	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"overwrite"}, []string{"--overwrite"}, customFlags)
-	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"--source-root", "-s"}, []string{"--source-root=."}, customFlags)
-	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"--working-dir"}, []string{"--working-dir", config.ModulePath}, customFlags)
+	cmd = codeql.AppendFlagIfNotSetByUser(cmd, []string{"--overwrite", "--no-overwrite"}, []string{"--overwrite"}, customFlags)
+	cmd = codeql.AppendFlagIfNotSetByUser(cmd, []string{"--source-root", "-s"}, []string{"--source-root=."}, customFlags)
+	cmd = codeql.AppendFlagIfNotSetByUser(cmd, []string{"--working-dir"}, []string{"--working-dir", config.ModulePath}, customFlags)
 
-	if !codeql.CheckIfFlagSetByUser(customFlags, []string{"--language", "-l"}) {
+	if !codeql.IsFlagSetByUser(customFlags, []string{"--language", "-l"}) {
 		language := getLangFromBuildTool(config.BuildTool)
 		if len(language) == 0 && len(config.Language) == 0 {
 			if config.BuildTool == "custom" {
@@ -266,16 +266,15 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 			cmd = append(cmd, "--language="+config.Language)
 		}
 	}
+	cmd = codeql.AppendThreadsAndRam(cmd, config.Threads, config.Ram, customFlags)
 
-	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
-
-	if len(config.BuildCommand) > 0 && !codeql.CheckIfFlagSetByUser(customFlags, []string{"--command", "-c"}) {
+	if len(config.BuildCommand) > 0 && !codeql.IsFlagSetByUser(customFlags, []string{"--command", "-c"}) {
 		buildCmd := config.BuildCommand
 		buildCmd = buildCmd + getMavenSettings(buildCmd, config, utils)
 		cmd = append(cmd, "--command="+buildCmd)
 	}
-	if codeql.CheckIfFlagSetByUser(customFlags, []string{"--command", "-c"}) {
-		updateCmdFlagsWithMavenSettings(config, customFlags, utils)
+	if codeql.IsFlagSetByUser(customFlags, []string{"--command", "-c"}) {
+		updateCmdFlagWithMavenSettings(config, customFlags, utils)
 	}
 	cmd = codeql.AppendCustomFlags(cmd, customFlags)
 
@@ -285,7 +284,7 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlExecuteScanOptions, format, output string) ([]string, error) {
 	var cmd []string
 	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
-	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
+	cmd = codeql.AppendThreadsAndRam(cmd, config.Threads, config.Ram, customFlags)
 	cmd = codeql.AppendCustomFlags(cmd, customFlags)
 	cmd = appendCodeqlQuery(cmd, config.QuerySuite)
 	return cmd, nil
@@ -432,18 +431,16 @@ func getMavenSettings(buildCmd string, config *codeqlExecuteScanOptions, utils c
 	return params
 }
 
-func updateCmdFlagsWithMavenSettings(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils) {
+func updateCmdFlagWithMavenSettings(config *codeqlExecuteScanOptions, customFlags map[string]string, utils codeqlExecuteScanUtils) {
 	var buildCmd string
 	if customFlags["--command"] != "" {
 		buildCmd = customFlags["--command"]
-	} else if customFlags["-c"] != "" {
+	} else {
 		buildCmd = customFlags["-c"]
 	}
-	if buildCmd != "" {
-		buildCmd += getMavenSettings(buildCmd, config, utils)
-		customFlags["--command"] = buildCmd
-		customFlags["-c"] = ""
-	}
+	buildCmd += getMavenSettings(buildCmd, config, utils)
+	customFlags["--command"] = buildCmd
+	delete(customFlags, "-c")
 }
 
 func addDataToInfluxDB(repoInfo *codeql.RepoInfo, querySuite string, scanResults []codeql.CodeqlFindings, influx *codeqlExecuteScanInflux) error {

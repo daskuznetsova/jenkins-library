@@ -14,7 +14,7 @@ var longShortFlagsMap = map[string]string{
 	"--ram":               "-M",
 }
 
-func CheckIfFlagSetByUser(customFlags map[string]string, flagsToCheck []string) bool {
+func IsFlagSetByUser(customFlags map[string]string, flagsToCheck []string) bool {
 	for _, flag := range flagsToCheck {
 		if _, exists := customFlags[flag]; exists {
 			return true
@@ -23,26 +23,20 @@ func CheckIfFlagSetByUser(customFlags map[string]string, flagsToCheck []string) 
 	return false
 }
 
-func AppendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag []string, customFlags map[string]string) []string {
-	if !CheckIfFlagSetByUser(customFlags, flagToCheck) {
-		cmd = append(cmd, appendFlag...)
+func AppendFlagIfNotSetByUser(cmd []string, flagToCheck []string, flagToAppend []string, customFlags map[string]string) []string {
+	if !IsFlagSetByUser(customFlags, flagToCheck) {
+		cmd = append(cmd, flagToAppend...)
 	}
 	return cmd
 }
 
-func ParseCustomFlags(flagsStr string) map[string]string {
-	flagsMap := make(map[string]string)
-	for _, flag := range parseFlags(flagsStr) {
-		if strings.Contains(flag, "=") {
-			split := strings.SplitN(flag, "=", 2)
-			flagsMap[split[0]] = flag
-		} else {
-			flagsMap[flag] = flag
+func AppendCustomFlags(cmd []string, flags map[string]string) []string {
+	for _, flag := range flags {
+		if strings.TrimSpace(flag) != "" {
+			cmd = append(cmd, flag)
 		}
 	}
-
-	removeDuplicateFlags(flagsMap, longShortFlagsMap)
-	return flagsMap
+	return cmd
 }
 
 func parseFlags(input string) []string {
@@ -86,15 +80,6 @@ func parseFlags(input string) []string {
 	return result
 }
 
-func AppendCustomFlags(cmd []string, flags map[string]string) []string {
-	for _, flag := range flags {
-		if strings.TrimSpace(flag) != "" {
-			cmd = append(cmd, flag)
-		}
-	}
-	return cmd
-}
-
 func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]string) {
 	for longFlag, correspondingShortFlag := range shortFlags {
 		if _, exists := customFlags[longFlag]; exists {
@@ -103,13 +88,29 @@ func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]s
 	}
 }
 
-func GetRamAndThreadsFromConfig(threads, ram string, customFlags map[string]string) []string {
-	params := []string{}
-	if len(threads) > 0 && !CheckIfFlagSetByUser(customFlags, []string{"--threads", "-j"}) {
-		params = append(params, "--threads="+threads)
+func ParseCustomFlags(flagsStr string) map[string]string {
+	flagsMap := make(map[string]string)
+	parsedFlags := parseFlags(flagsStr)
+
+	for _, flag := range parsedFlags {
+		if strings.Contains(flag, "=") {
+			split := strings.SplitN(flag, "=", 2)
+			flagsMap[split[0]] = flag
+		} else {
+			flagsMap[flag] = flag
+		}
 	}
-	if len(ram) > 0 && !CheckIfFlagSetByUser(customFlags, []string{"--ram", "-M"}) {
-		params = append(params, "--ram="+ram)
+
+	removeDuplicateFlags(flagsMap, longShortFlagsMap)
+	return flagsMap
+}
+
+func AppendThreadsAndRam(cmd []string, threads, ram string, customFlags map[string]string) []string {
+	if len(threads) > 0 && !IsFlagSetByUser(customFlags, []string{"--threads", "-j"}) {
+		cmd = append(cmd, "--threads="+threads)
 	}
-	return params
+	if len(ram) > 0 && !IsFlagSetByUser(customFlags, []string{"--ram", "-M"}) {
+		cmd = append(cmd, "--ram="+ram)
+	}
+	return cmd
 }
