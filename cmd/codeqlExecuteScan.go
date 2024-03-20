@@ -157,13 +157,44 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	} else {
 		log.Entry().Infof("The sarif results will be uploaded to the repository %s", repoInfo.FullUrl)
 
-		var resultReports []piperutils.Path
-		scanResults, resultReports, err = uploadResults(config, repoInfo, utils)
+		hasToken, token := getToken(config)
+		if !hasToken {
+			return reports, fmt.Errorf("failed running upload-results as githubToken was not specified")
+		}
+
+		err = uploadSarifResults(config, token, repoInfo, utils)
 		if err != nil {
-			log.Entry().WithError(err).Error("failed to upload results")
 			return reports, err
 		}
-		reports = append(reports, resultReports...)
+
+		codeqlScanAuditInstance := codeql.NewCodeqlScanAuditInstance(repoInfo.ServerUrl, repoInfo.Owner, repoInfo.Repo, token, []string{})
+		scanResults, err = codeqlScanAuditInstance.GetVulnerabilities(repoInfo.AnalyzedRef)
+		if err != nil {
+			log.Entry().WithError(err).Error("failed to get vulnerabilities")
+			return reports, err
+		}
+
+		codeqlAudit := codeql.CodeqlAudit{
+			ToolName:               "codeql",
+			RepositoryUrl:          repoInfo.FullUrl,
+			CodeScanningLink:       repoInfo.ScanUrl,
+			RepositoryReferenceUrl: repoInfo.FullRef,
+			QuerySuite:             config.QuerySuite,
+			ScanResults:            scanResults,
+		}
+		paths, err := codeql.WriteJSONReport(codeqlAudit, config.ModulePath)
+		if err != nil {
+			log.Entry().WithError(err).Error("failed to write json compliance report")
+			return reports, err
+		}
+		reports = append(reports, paths...)
+
+		if config.CheckForCompliance {
+			err = checkForCompliance(scanResults, config, repoInfo)
+			if err != nil {
+				return reports, err
+			}
+		}
 	}
 
 	err = addDataToInfluxDB(repoInfo, config.QuerySuite, scanResults, influx)
@@ -224,6 +255,7 @@ func runGithubUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.R
 		return "", err
 	}
 
+	log.Entry().Error("failed to upload sarif results")
 	url := strings.TrimSpace(bufferOut.String())
 	return url, nil
 }
@@ -316,48 +348,6 @@ func prepareCmdForUploadResults(config *codeqlExecuteScanOptions, repoInfo *code
 		cmd = append(cmd, "--ref="+repoInfo.AnalyzedRef)
 	}
 	return cmd
-}
-
-func uploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, utils codeqlExecuteScanUtils) ([]codeql.CodeqlFindings, []piperutils.Path, error) {
-	var scanResults []codeql.CodeqlFindings
-	var reports []piperutils.Path
-
-	hasToken, token := getToken(config)
-	if !hasToken {
-		return nil, nil, fmt.Errorf("failed running upload-results as githubToken was not specified")
-	}
-
-	err := uploadSarifResults(config, token, repoInfo, utils)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	codeqlScanAuditInstance := codeql.NewCodeqlScanAuditInstance(repoInfo.ServerUrl, repoInfo.Owner, repoInfo.Repo, token, []string{})
-	scanResults, err = codeqlScanAuditInstance.GetVulnerabilities(repoInfo.AnalyzedRef)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get scan results")
-	}
-
-	codeqlAudit := codeql.CodeqlAudit{
-		ToolName:               "codeql",
-		RepositoryUrl:          repoInfo.FullUrl,
-		CodeScanningLink:       repoInfo.ScanUrl,
-		RepositoryReferenceUrl: repoInfo.FullRef,
-		QuerySuite:             config.QuerySuite,
-		ScanResults:            scanResults,
-	}
-	reports, err = codeql.WriteJSONReport(codeqlAudit, config.ModulePath)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to write json compliance report")
-	}
-
-	if config.CheckForCompliance {
-		err = checkForCompliance(scanResults, config, repoInfo)
-		if err != nil {
-			return scanResults, reports, err
-		}
-	}
-	return scanResults, reports, nil
 }
 
 func uploadSarifResults(config *codeqlExecuteScanOptions, token string, repoInfo *codeql.RepoInfo, utils codeqlExecuteScanUtils) error {
