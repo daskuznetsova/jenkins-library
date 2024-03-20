@@ -277,10 +277,7 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 	if codeql.CheckIfFlagSetByUser(customFlags, []string{"--command", "-c"}) {
 		updateCmdFlagsWithMavenSettings(config, customFlags, utils)
 	}
-
-	for _, flag := range customFlags {
-		cmd = append(cmd, flag)
-	}
+	codeql.AppendCustomFlags(cmd, customFlags)
 
 	return cmd, nil
 }
@@ -289,10 +286,7 @@ func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlE
 	var cmd []string
 	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
 	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
-
-	for _, flag := range customFlags {
-		cmd = append(cmd, flag)
-	}
+	codeql.AppendCustomFlags(cmd, customFlags)
 	cmd = appendCodeqlQuery(cmd, config.QuerySuite)
 	return cmd, nil
 }
