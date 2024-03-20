@@ -88,12 +88,12 @@ func extractRepoData(repoUri string) (string, string, string, error) {
 		serverUrl := "https://" + match[3]
 		repoData := strings.Split(strings.TrimSuffix(match[4], ".git"), "/")
 		if len(repoData) != 2 {
-			return "", "", "", fmt.Errorf("Invalid repository %s", repoUri)
+			return "", "", "", fmt.Errorf("invalid repository %s", repoUri)
 		}
 		owner, repo := repoData[0], repoData[1]
 		return serverUrl, owner, repo, nil
 	}
-	return "", "", "", fmt.Errorf("Invalid repository %s", repoUri)
+	return "", "", "", fmt.Errorf("invalid repository %s", repoUri)
 }
 
 func fetchOrchestratorRepoInfoIfNeeded(repoInfo *RepoInfo) {
@@ -115,14 +115,13 @@ func fetchOrchestratorRepoInfo(repoInfo *RepoInfo, provider orchestrator.ConfigP
 	if repoInfo.ServerUrl == "" {
 		err := getGitRepoInfo(provider.RepoURL(), repoInfo)
 		if err != nil {
-			log.Entry().Error(err)
+			log.Entry().WithError(err).Error("failed to get repo info from orchestrator")
 		}
 	}
 }
 
 func updateRepoInfoForTargetGitHub(targetGHRepoURL, targetGHBranchName string, repoInfo *RepoInfo) error {
 	if strings.Contains(repoInfo.ServerUrl, "github") {
-		log.Entry().Errorf("TargetGithubRepoURL should not be set as the source repo is on github.")
 		return errors.New("TargetGithubRepoURL should not be set as the source repo is on github")
 	}
 	err := getGitRepoInfo(targetGHRepoURL, repoInfo)
