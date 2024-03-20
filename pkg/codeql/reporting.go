@@ -77,7 +77,7 @@ func createToolRecordCodeql(utils piperutils.FileUtils, repoInfo *RepoInfo, modu
 	}
 
 	record.DisplayName = fmt.Sprintf("%s %s - %s %s", repoInfo.Owner, repoInfo.Repo, repoInfo.AnalyzedRef, repoInfo.CommitId)
-	record.DisplayURL = fmt.Sprintf("%s/security/code-scanning?query=is:open+ref:%s", repoInfo.FullUrl, repoInfo.AnalyzedRef)
+	record.DisplayURL = repoInfo.ScanUrl
 
 	err := record.AddKeyData("repository",
 		fmt.Sprintf("%s/%s", repoInfo.Owner, repoInfo.Repo),
@@ -98,7 +98,7 @@ func createToolRecordCodeql(utils piperutils.FileUtils, repoInfo *RepoInfo, modu
 	err = record.AddKeyData("scanResult",
 		fmt.Sprintf("%s/%s", repoInfo.AnalyzedRef, repoInfo.CommitId),
 		fmt.Sprintf("%s %s - %s %s", repoInfo.Owner, repoInfo.Repo, repoInfo.AnalyzedRef, repoInfo.CommitId),
-		fmt.Sprintf("%s/security/code-scanning?query=is:open+ref:%s", repoInfo.FullUrl, repoInfo.AnalyzedRef))
+		repoInfo.ScanUrl)
 	if err != nil {
 		return record, err
 	}

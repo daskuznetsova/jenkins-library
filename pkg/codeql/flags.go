@@ -14,18 +14,6 @@ var longShortFlagsMap = map[string]string{
 	"--ram":               "-M",
 }
 
-func GetCustomFlags(input map[string]string) []string {
-	params := []string{}
-
-	for _, value := range input {
-		if strings.TrimSpace(value) != "" {
-			params = append(params, value)
-		}
-	}
-
-	return params
-}
-
 func CheckIfFlagSetByUser(customFlags map[string]string, flagsToCheck []string) bool {
 	for _, flag := range flagsToCheck {
 		if _, exists := customFlags[flag]; exists {
@@ -44,7 +32,10 @@ func AppendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag []str
 
 func ParseCustomFlags(flagsStr string) map[string]string {
 	flagsMap := make(map[string]string)
-	for _, flag := range getFlags(flagsStr) {
+	for _, flag := range parseFlags(flagsStr) {
+		if strings.TrimSpace(flag) == "" {
+			continue
+		}
 		if strings.Contains(flag, "=") {
 			split := strings.SplitN(flag, "=", 2)
 			flagsMap[split[0]] = flag
@@ -57,7 +48,7 @@ func ParseCustomFlags(flagsStr string) map[string]string {
 	return flagsMap
 }
 
-func getFlags(input string) []string {
+func parseFlags(input string) []string {
 	result := []string{}
 	isFlagStarted := false
 	isString := false

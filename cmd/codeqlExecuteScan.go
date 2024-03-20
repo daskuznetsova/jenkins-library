@@ -102,6 +102,15 @@ func getToken(config *codeqlExecuteScanOptions) (bool, string) {
 	return false, ""
 }
 
+func printCodeqlImageVersion() {
+	codeqlVersion, err := os.ReadFile("/etc/image-version")
+	if err != nil {
+		log.Entry().Infof("CodeQL image version: unknown")
+	} else {
+		log.Entry().Infof("CodeQL image version: %s", string(codeqlVersion))
+	}
+}
+
 func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
 	printCodeqlImageVersion()
 
@@ -219,15 +228,6 @@ func runGithubUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.R
 	return url, nil
 }
 
-func printCodeqlImageVersion() {
-	codeqlVersion, err := os.ReadFile("/etc/image-version")
-	if err != nil {
-		log.Entry().Infof("CodeQL image version: unknown")
-	} else {
-		log.Entry().Infof("CodeQL image version: %s", string(codeqlVersion))
-	}
-}
-
 func executeAnalysis(format, reportName string, customFlags map[string]string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) ([]piperutils.Path, error) {
 	moduleTargetPath := filepath.Join(config.ModulePath, "target")
 	report := filepath.Join(moduleTargetPath, reportName)
@@ -278,7 +278,9 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 		updateCmdFlagsWithMavenSettings(config, customFlags, utils)
 	}
 
-	cmd = append(cmd, codeql.GetCustomFlags(customFlags)...)
+	for _, flag := range customFlags {
+		cmd = append(cmd, flag)
+	}
 
 	return cmd, nil
 }
@@ -288,7 +290,9 @@ func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlE
 	cmd = append(cmd, "database", "analyze", fmt.Sprintf("--format=%s", format), fmt.Sprintf("--output=%v", output), config.Database)
 	cmd = append(cmd, codeql.GetRamAndThreadsFromConfig(config.Threads, config.Ram, customFlags)...)
 
-	cmd = append(cmd, codeql.GetCustomFlags(customFlags)...)
+	for _, flag := range customFlags {
+		cmd = append(cmd, flag)
+	}
 	cmd = appendCodeqlQuery(cmd, config.QuerySuite)
 	return cmd, nil
 }
