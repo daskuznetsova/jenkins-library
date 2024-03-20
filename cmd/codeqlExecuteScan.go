@@ -58,6 +58,50 @@ func codeqlExecuteScan(config codeqlExecuteScanOptions, telemetryData *telemetry
 	influx.step_data.fields.codeql = true
 }
 
+func appendCodeqlQuery(cmd []string, codeqlQuery string) []string {
+	if len(codeqlQuery) > 0 {
+		cmd = append(cmd, codeqlQuery)
+	}
+	return cmd
+}
+
+func execute(utils codeqlExecuteScanUtils, cmd []string, isVerbose bool) error {
+	if isVerbose {
+		cmd = append(cmd, "-v")
+	}
+	return utils.RunExecutable("codeql", cmd...)
+}
+
+func getLangFromBuildTool(buildTool string) string {
+	switch buildTool {
+	case "maven":
+		return "java"
+	case "pip":
+		return "python"
+	case "npm":
+		return "javascript"
+	case "yarn":
+		return "javascript"
+	case "golang":
+		return "go"
+	default:
+		return ""
+	}
+}
+
+func getToken(config *codeqlExecuteScanOptions) (bool, string) {
+	if len(config.GithubToken) > 0 {
+		return true, config.GithubToken
+	}
+
+	envVal, isEnvGithubToken := os.LookupEnv("GITHUB_TOKEN")
+	if isEnvGithubToken {
+		return true, envVal
+	}
+
+	return false, ""
+}
+
 func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
 	printCodeqlImageVersion()
 
@@ -201,13 +245,6 @@ func executeAnalysis(format, reportName string, customFlags map[string]string, c
 	}, nil
 }
 
-func execute(utils codeqlExecuteScanUtils, cmd []string, isVerbose bool) error {
-	if isVerbose {
-		cmd = append(cmd, "-v")
-	}
-	return utils.RunExecutable("codeql", cmd...)
-}
-
 func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) ([]string, error) {
 	cmd := []string{"database", "create", config.Database}
 	cmd = codeql.AppendFlagIfNotPresent(cmd, []string{"overwrite"}, []string{"--overwrite"}, customFlags)
@@ -254,13 +291,6 @@ func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlE
 	cmd = append(cmd, codeql.GetCustomFlags(customFlags)...)
 	cmd = appendCodeqlQuery(cmd, config.QuerySuite)
 	return cmd, nil
-}
-
-func appendCodeqlQuery(cmd []string, codeqlQuery string) []string {
-	if len(codeqlQuery) > 0 {
-		cmd = append(cmd, codeqlQuery)
-	}
-	return cmd
 }
 
 func prepareCmdForUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, token string) []string {
@@ -373,36 +403,6 @@ func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.Re
 	log.Entry().Info("DB sources were successfully uploaded to target GitHub repo")
 
 	return nil
-}
-
-func getLangFromBuildTool(buildTool string) string {
-	switch buildTool {
-	case "maven":
-		return "java"
-	case "pip":
-		return "python"
-	case "npm":
-		return "javascript"
-	case "yarn":
-		return "javascript"
-	case "golang":
-		return "go"
-	default:
-		return ""
-	}
-}
-
-func getToken(config *codeqlExecuteScanOptions) (bool, string) {
-	if len(config.GithubToken) > 0 {
-		return true, config.GithubToken
-	}
-
-	envVal, isEnvGithubToken := os.LookupEnv("GITHUB_TOKEN")
-	if isEnvGithubToken {
-		return true, envVal
-	}
-
-	return false, ""
 }
 
 func checkForCompliance(scanResults []codeql.CodeqlFindings, config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo) error {
