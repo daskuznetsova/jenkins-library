@@ -62,17 +62,16 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	printCodeqlImageVersion()
 
 	var reports []piperutils.Path
-
-	dbCreateCustomFlags := codeql.ParseCustomFlags(config.DatabaseCreateFlags)
-	err := runDatabaseCreate(config, dbCreateCustomFlags, utils)
+	err := os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm)
 	if err != nil {
-		log.Entry().WithError(err).Error("failed to create codeql database")
+		log.Entry().WithError(err).Error("failed to create output directory for reports")
 		return reports, err
 	}
 
-	err = createOutputDirectory(config)
+	dbCreateCustomFlags := codeql.ParseCustomFlags(config.DatabaseCreateFlags)
+	err = runDatabaseCreate(config, dbCreateCustomFlags, utils)
 	if err != nil {
-		log.Entry().WithError(err).Error("failed to create output directory for reports")
+		log.Entry().WithError(err).Error("failed to create codeql database")
 		return reports, err
 	}
 
@@ -99,12 +98,20 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 		}
 	}
 
-	scanResults, resultReports, err := handleUploadResults(config, repoInfo, utils)
-	if err != nil {
-		log.Entry().WithError(err).Error("failed to upload results")
-		return reports, err
+	var scanResults []codeql.CodeqlFindings
+	if !config.UploadResults {
+		log.Entry().Warn("The sarif results will not be uploaded to the repository and compliance report will not be generated as uploadResults is set to false.")
+	} else {
+		log.Entry().Infof("The sarif results will be uploaded to the repository %s", repoInfo.FullUrl)
+
+		var resultReports []piperutils.Path
+		scanResults, resultReports, err = uploadResults(config, repoInfo, utils)
+		if err != nil {
+			log.Entry().WithError(err).Error("failed to upload results")
+			return reports, err
+		}
+		reports = append(reports, resultReports...)
 	}
-	reports = append(reports, resultReports...)
 
 	err = addDataToInfluxDB(repoInfo, config.QuerySuite, scanResults, influx)
 	if err != nil {
@@ -127,11 +134,11 @@ func runDatabaseCreate(config *codeqlExecuteScanOptions, customFlags map[string]
 		log.Entry().Error("failed to prepare command for codeql database create")
 		return err
 	}
-	for i, c := range cmd {
-		if strings.TrimSpace(c) == "" {
-			cmd = append(cmd[:i], cmd[i+1:]...)
-		}
-	}
+	//for i, c := range cmd {
+	//	if strings.TrimSpace(c) == "" {
+	//		cmd = append(cmd[:i], cmd[i+1:]...)
+	//	}
+	//}
 	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
 		log.Entry().Error("failed running command codeql database create")
 		return err
@@ -180,14 +187,6 @@ func printCodeqlImageVersion() {
 	} else {
 		log.Entry().Infof("CodeQL image version: %s", string(codeqlVersion))
 	}
-}
-
-func createOutputDirectory(config *codeqlExecuteScanOptions) error {
-	err := os.MkdirAll(filepath.Join(config.ModulePath, "target"), os.ModePerm)
-	if err != nil {
-		log.Entry().WithError(err).Error("failed to create output directory")
-	}
-	return err
 }
 
 func executeAnalysis(format, reportName string, customFlags map[string]string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) ([]piperutils.Path, error) {
@@ -307,13 +306,9 @@ func prepareCmdForUploadResults(config *codeqlExecuteScanOptions, repoInfo *code
 	return cmd
 }
 
-func handleUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, utils codeqlExecuteScanUtils) ([]codeql.CodeqlFindings, []piperutils.Path, error) {
+func uploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, utils codeqlExecuteScanUtils) ([]codeql.CodeqlFindings, []piperutils.Path, error) {
 	var scanResults []codeql.CodeqlFindings
 	var reports []piperutils.Path
-	if !config.UploadResults {
-		log.Entry().Warn("The sarif results will not be uploaded to the repository and compliance report will not be generated as runGithubUploadResults is set to false.")
-		return scanResults, reports, nil
-	}
 
 	hasToken, token := getToken(config)
 	if !hasToken {
