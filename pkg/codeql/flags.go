@@ -86,12 +86,13 @@ func parseFlags(input string) []string {
 	return result
 }
 
-func AppendCustomFlags(cmd []string, flags map[string]string) {
+func AppendCustomFlags(cmd []string, flags map[string]string) []string {
 	for _, flag := range flags {
 		if strings.TrimSpace(flag) != "" {
 			cmd = append(cmd, flag)
 		}
 	}
+	return cmd
 }
 
 func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]string) {
