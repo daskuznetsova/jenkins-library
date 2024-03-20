@@ -200,10 +200,10 @@ func TestBuildRepoReference(t *testing.T) {
 	})
 }
 
-func TestGetGitRepoInfo(t *testing.T) {
+func TestSetRepoInfoFromRepoUri(t *testing.T) {
 	t.Run("Valid https URL1", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/fortify.git", &repoInfo)
+		err := setRepoInfoFromRepoUri("https://github.hello.test/Testing/fortify.git", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "fortify", repoInfo.Repo)
@@ -212,7 +212,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Valid https URL2", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/fortify", &repoInfo)
+		err := setRepoInfoFromRepoUri("https://github.hello.test/Testing/fortify", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "fortify", repoInfo.Repo)
@@ -220,7 +220,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 	})
 	t.Run("Valid https URL1 with dots", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/com.sap.fortify.git", &repoInfo)
+		err := setRepoInfoFromRepoUri("https://github.hello.test/Testing/com.sap.fortify.git", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
@@ -229,7 +229,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Valid https URL2 with dots", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("https://github.hello.test/Testing/com.sap.fortify", &repoInfo)
+		err := setRepoInfoFromRepoUri("https://github.hello.test/Testing/com.sap.fortify", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
@@ -237,7 +237,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 	})
 	t.Run("Valid https URL1 with username and token", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("https://username:token@github.hello.test/Testing/fortify.git", &repoInfo)
+		err := setRepoInfoFromRepoUri("https://username:token@github.hello.test/Testing/fortify.git", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "fortify", repoInfo.Repo)
@@ -246,7 +246,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Valid https URL2 with username and token", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("https://username:token@github.hello.test/Testing/fortify", &repoInfo)
+		err := setRepoInfoFromRepoUri("https://username:token@github.hello.test/Testing/fortify", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "fortify", repoInfo.Repo)
@@ -255,17 +255,17 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Invalid https URL as no org/Owner passed", func(t *testing.T) {
 		var repoInfo RepoInfo
-		assert.Error(t, getGitRepoInfo("https://github.com/fortify", &repoInfo))
+		assert.Error(t, setRepoInfoFromRepoUri("https://github.com/fortify", &repoInfo))
 	})
 
 	t.Run("Invalid URL as no protocol passed", func(t *testing.T) {
 		var repoInfo RepoInfo
-		assert.Error(t, getGitRepoInfo("github.hello.test/Testing/fortify", &repoInfo))
+		assert.Error(t, setRepoInfoFromRepoUri("github.hello.test/Testing/fortify", &repoInfo))
 	})
 
 	t.Run("Valid ssh URL1", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/fortify.git", &repoInfo)
+		err := setRepoInfoFromRepoUri("git@github.hello.test/Testing/fortify.git", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "fortify", repoInfo.Repo)
@@ -274,7 +274,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Valid ssh URL2", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/fortify", &repoInfo)
+		err := setRepoInfoFromRepoUri("git@github.hello.test/Testing/fortify", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "fortify", repoInfo.Repo)
@@ -282,7 +282,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 	})
 	t.Run("Valid ssh URL1 with dots", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/com.sap.fortify.git", &repoInfo)
+		err := setRepoInfoFromRepoUri("git@github.hello.test/Testing/com.sap.fortify.git", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
@@ -291,7 +291,7 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Valid ssh URL2 with dots", func(t *testing.T) {
 		var repoInfo RepoInfo
-		err := getGitRepoInfo("git@github.hello.test/Testing/com.sap.fortify", &repoInfo)
+		err := setRepoInfoFromRepoUri("git@github.hello.test/Testing/com.sap.fortify", &repoInfo)
 		assert.NoError(t, err)
 		assert.Equal(t, "https://github.hello.test", repoInfo.ServerUrl)
 		assert.Equal(t, "com.sap.fortify", repoInfo.Repo)
@@ -300,6 +300,68 @@ func TestGetGitRepoInfo(t *testing.T) {
 
 	t.Run("Invalid ssh URL as no org/Owner passed", func(t *testing.T) {
 		var repoInfo RepoInfo
-		assert.Error(t, getGitRepoInfo("git@github.com/fortify", &repoInfo))
+		assert.Error(t, setRepoInfoFromRepoUri("git@github.com/fortify", &repoInfo))
+	})
+}
+
+func TestSetTargetGithubRepoInfo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Source repo server is github", func(t *testing.T) {
+		repoInfo := &RepoInfo{
+			ServerUrl: "https://github.com",
+			Owner:     "owner",
+			Repo:      "repo",
+		}
+		targetRepo := "https://github.com/target/repo"
+		targetBranch := "target-branch"
+		err := setTargetGithubRepoInfo(targetRepo, targetBranch, repoInfo)
+		assert.Error(t, err)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		repoInfo := &RepoInfo{
+			ServerUrl:   "https://gitlab.com",
+			Owner:       "owner",
+			Repo:        "repo",
+			AnalyzedRef: "refs/heads/source-branch",
+		}
+		targetRepo := "https://github.com/target/repo"
+		targetBranch := "target-branch"
+		err := setTargetGithubRepoInfo(targetRepo, targetBranch, repoInfo)
+		assert.NoError(t, err)
+		assert.Equal(t, "https://github.com", repoInfo.ServerUrl)
+		assert.Equal(t, "target", repoInfo.Owner)
+		assert.Equal(t, "repo", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/target-branch", repoInfo.AnalyzedRef)
+	})
+
+	t.Run("Empty target branch", func(t *testing.T) {
+		repoInfo := &RepoInfo{
+			ServerUrl:   "https://gitlab.com",
+			Owner:       "owner",
+			Repo:        "repo",
+			AnalyzedRef: "refs/heads/source-branch",
+		}
+		targetRepo := "https://github.com/target/repo"
+		err := setTargetGithubRepoInfo(targetRepo, "", repoInfo)
+		assert.NoError(t, err)
+		assert.Equal(t, "https://github.com", repoInfo.ServerUrl)
+		assert.Equal(t, "target", repoInfo.Owner)
+		assert.Equal(t, "repo", repoInfo.Repo)
+		assert.Equal(t, "refs/heads/source-branch", repoInfo.AnalyzedRef)
+	})
+}
+
+func TestGetFullBranchName(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Given short branch name", func(t *testing.T) {
+		input := "branch-name"
+		assert.Equal(t, "refs/heads/branch-name", getFullBranchName(input))
+	})
+	t.Run("Given full branch name", func(t *testing.T) {
+		input := "refs/heads/branch-name"
+		assert.Equal(t, "refs/heads/branch-name", getFullBranchName(input))
 	})
 }

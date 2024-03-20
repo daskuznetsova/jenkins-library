@@ -23,18 +23,18 @@ type RepoInfo struct {
 
 func GetRepoInfo(repository, analyzedRef, commitID, targetGithubRepoURL, targetGithubBranchName string) (*RepoInfo, error) {
 	repoInfo := &RepoInfo{}
-	err := getGitRepoInfo(repository, repoInfo)
+	err := setRepoInfoFromRepoUri(repository, repoInfo)
 	if err != nil {
 		log.Entry().Error(err)
 	}
 	repoInfo.AnalyzedRef = analyzedRef
 	repoInfo.CommitId = commitID
 
-	fetchOrchestratorRepoInfoIfNeeded(repoInfo)
+	getRepoInfoFromOrchestrator(repoInfo)
 
 	if len(targetGithubRepoURL) > 0 {
 		log.Entry().Infof("Checking target GitHub repo URL: %s", targetGithubRepoURL)
-		if err := updateRepoInfoForTargetGitHub(targetGithubRepoURL, targetGithubBranchName, repoInfo); err != nil {
+		if err := setTargetGithubRepoInfo(targetGithubRepoURL, targetGithubBranchName, repoInfo); err != nil {
 			return repoInfo, err
 		}
 	}
@@ -66,11 +66,11 @@ func buildRepoReference(repository, analyzedRef string) (string, error) {
 	return fmt.Sprintf("%s/tree/%s", repository, ref[2]), nil
 }
 
-func getGitRepoInfo(repoUri string, repoInfo *RepoInfo) error {
+func setRepoInfoFromRepoUri(repoUri string, repoInfo *RepoInfo) error {
 	if repoUri == "" {
 		return errors.New("repository param is not set or it cannot be auto populated")
 	}
-	serverUrl, owner, repo, err := extractRepoData(repoUri)
+	serverUrl, owner, repo, err := parseRepoUri(repoUri)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func getGitRepoInfo(repoUri string, repoInfo *RepoInfo) error {
 	return nil
 }
 
-func extractRepoData(repoUri string) (string, string, string, error) {
+func parseRepoUri(repoUri string) (string, string, string, error) {
 	pat := regexp.MustCompile(`^(https:\/\/|git@)([\S]+:[\S]+@)?([^\/:]+)[\/:]([^\/:]+\/[\S]+)$`)
 	matches := pat.FindAllStringSubmatch(repoUri, -1)
 	if len(matches) > 0 {
@@ -96,47 +96,43 @@ func extractRepoData(repoUri string) (string, string, string, error) {
 	return "", "", "", fmt.Errorf("invalid repository %s", repoUri)
 }
 
-func fetchOrchestratorRepoInfoIfNeeded(repoInfo *RepoInfo) {
+func getRepoInfoFromOrchestrator(repoInfo *RepoInfo) {
 	provider, err := orchestrator.GetOrchestratorConfigProvider(nil)
 	if err != nil {
 		log.Entry().Warn("No orchestrator found. We assume piper is running locally.")
 	} else {
-		fetchOrchestratorRepoInfo(repoInfo, provider)
-	}
-}
-
-func fetchOrchestratorRepoInfo(repoInfo *RepoInfo, provider orchestrator.ConfigProvider) {
-	if repoInfo.AnalyzedRef == "" {
-		repoInfo.AnalyzedRef = provider.GitReference()
-	}
-	if repoInfo.CommitId == "" || repoInfo.CommitId == "NA" {
-		repoInfo.CommitId = provider.CommitSHA()
-	}
-	if repoInfo.ServerUrl == "" {
-		err := getGitRepoInfo(provider.RepoURL(), repoInfo)
-		if err != nil {
-			log.Entry().WithError(err).Error("failed to get repo info from orchestrator")
+		if repoInfo.AnalyzedRef == "" {
+			repoInfo.AnalyzedRef = provider.GitReference()
+		}
+		if repoInfo.CommitId == "" || repoInfo.CommitId == "NA" {
+			repoInfo.CommitId = provider.CommitSHA()
+		}
+		if repoInfo.ServerUrl == "" {
+			err := setRepoInfoFromRepoUri(provider.RepoURL(), repoInfo)
+			if err != nil {
+				log.Entry().WithError(err).Error("failed to get repo info from orchestrator")
+			}
 		}
 	}
 }
 
-func updateRepoInfoForTargetGitHub(targetGHRepoURL, targetGHBranchName string, repoInfo *RepoInfo) error {
+func setTargetGithubRepoInfo(targetGHRepoURL, targetGHBranchName string, repoInfo *RepoInfo) error {
 	if strings.Contains(repoInfo.ServerUrl, "github") {
 		return errors.New("TargetGithubRepoURL should not be set as the source repo is on github")
 	}
-	err := getGitRepoInfo(targetGHRepoURL, repoInfo)
+	err := setRepoInfoFromRepoUri(targetGHRepoURL, repoInfo)
 	if err != nil {
 		log.Entry().WithError(err).Error("Failed to get target github repo info")
 		return err
 	}
 	if len(targetGHBranchName) > 0 {
 		log.Entry().Infof("Target GitHub branch name: %s", targetGHBranchName)
-		repoInfo.AnalyzedRef = createRepoReference(targetGHBranchName)
+		repoInfo.AnalyzedRef = getFullBranchName(targetGHBranchName)
 	}
 	return nil
 }
 
-func createRepoReference(branchName string) string {
+func getFullBranchName(branchName string) string {
 	if len(strings.Split(branchName, "/")) < 3 {
 		return "refs/heads/" + branchName
 	}
