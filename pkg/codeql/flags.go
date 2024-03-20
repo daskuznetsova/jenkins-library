@@ -14,14 +14,16 @@ var longShortFlagsMap = map[string]string{
 	"--ram":               "-M",
 }
 
-func AppendCustomFlags(input map[string]string) ([]string, error) {
+func GetCustomFlags(input map[string]string) []string {
 	params := []string{}
 
 	for _, value := range input {
-		params = append(params, value)
+		if strings.TrimSpace(value) != "" {
+			params = append(params, value)
+		}
 	}
 
-	return params, nil
+	return params
 }
 
 func CheckIfFlagSetByUser(customFlags map[string]string, flagsToCheck []string) bool {
@@ -105,7 +107,7 @@ func removeDuplicateFlags(customFlags map[string]string, shortFlags map[string]s
 }
 
 func GetRamAndThreadsFromConfig(threads, ram string, customFlags map[string]string) []string {
-	params := make([]string, 0, 2)
+	params := []string{}
 	if len(threads) > 0 && !CheckIfFlagSetByUser(customFlags, []string{"--threads", "-j"}) {
 		params = append(params, "--threads="+threads)
 	}
