@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateFlags(t *testing.T) {
+func TestAppendCustomFlags(t *testing.T) {
 	t.Parallel()
 
 	t.Run("All flags are valid", func(t *testing.T) {
@@ -62,75 +62,119 @@ func TestValidateFlags(t *testing.T) {
 	})
 }
 
-func TestParseCustomFlags(t *testing.T) {
+func TestCheckIfFlagSetByUser(t *testing.T) {
+	t.Parallel()
+
+	customFlags := map[string]string{
+		"--flag1": "--flag1=1",
+		"-f2":     "-f2=2",
+		"--flag3": "--flag3",
+	}
+
+	t.Run("Flag is not set by user", func(t *testing.T) {
+		input := []string{"-f4"}
+		assert.False(t, CheckIfFlagSetByUser(customFlags, input))
+	})
+	t.Run("Flag is set by user", func(t *testing.T) {
+		input := []string{"-f2"}
+		assert.True(t, CheckIfFlagSetByUser(customFlags, input))
+	})
+	t.Run("One of flags is set by user", func(t *testing.T) {
+		input := []string{"--flag2", "-f2"}
+		assert.True(t, CheckIfFlagSetByUser(customFlags, input))
+	})
+}
+
+func TestGetFlags(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Valid flags with values", func(t *testing.T) {
 		inputStr := "--flag1=1 --flag2=2 --flag3=string"
-		expected := map[string]string{
-			"--flag1": "--flag1=1",
-			"--flag2": "--flag2=2",
-			"--flag3": "--flag3=string",
+		expected := map[string]bool{
+			"--flag1=1":      true,
+			"--flag2=2":      true,
+			"--flag3=string": true,
 		}
 		result := ParseCustomFlags(inputStr)
 		assert.Equal(t, len(expected), len(result))
-		for k, v := range result {
-			assert.Equal(t, expected[k], v)
-		}
-	})
-
-	t.Run(".", func(t *testing.T) {
-		inputStr := "--no-db-cluster -l=java --threads=1 --command='mvn clean package -Dmaven.test.skip=true'"
-		expected := map[string]string{
-			"--no-db-cluster": "--no-db-cluster",
-			"-l":              "-l=java",
-			"--threads":       "--threads=1",
-			"--command":       "--command='mvn clean package -Dmaven.test.skip=true'",
-		}
-		result := ParseCustomFlags(inputStr)
-		assert.Equal(t, len(expected), len(result))
-		for k, v := range result {
-			assert.Equal(t, expected[k], v)
+		for _, f := range result {
+			assert.True(t, expected[f])
 		}
 	})
 
 	t.Run("Valid flags without values", func(t *testing.T) {
 		inputStr := "--flag1 -flag2 -f3"
-		expected := map[string]string{
-			"--flag1": "--flag1",
-			"-flag2":  "-flag2",
-			"-f3":     "-f3",
+		expected := map[string]bool{
+			"--flag1": true,
+			"-flag2":  true,
+			"-f3":     true,
 		}
 		result := ParseCustomFlags(inputStr)
 		assert.Equal(t, len(expected), len(result))
-		for k, v := range result {
-			assert.Equal(t, expected[k], v)
-		}
-	})
-
-	t.Run("Duplications with short flags", func(t *testing.T) {
-		inputStr := "--language=java -l=python -s=. --ram=2000"
-		expected := map[string]string{
-			"--language": "--language=java",
-			"-s":         "-s=.",
-			"--ram":      "--ram=2000",
-		}
-		result := ParseCustomFlags(inputStr)
-		assert.Equal(t, len(expected), len(result))
-		for k, v := range result {
-			assert.Equal(t, expected[k], v)
+		for _, f := range result {
+			assert.True(t, expected[f])
 		}
 	})
 
 	t.Run("Valid flags with spaces in value", func(t *testing.T) {
-		inputStr := "--flag1='mvn install' --flag2='mvn clean install'"
-		expected := map[string]string{
-			"--flag1": "--flag1='mvn install'",
-			"--flag2": "--flag2='mvn clean install'",
+		inputStr := "--flag1='mvn install' --flag2=\"mvn clean install\" -f3='mvn clean install -DskipTests=true'"
+		expected := map[string]bool{
+			"--flag1=mvn install":                    true,
+			"--flag2=mvn clean install":              true,
+			"-f3=mvn clean install -DskipTests=true": true,
 		}
 		result := ParseCustomFlags(inputStr)
 		assert.Equal(t, len(expected), len(result))
-		for k, v := range result {
+		for _, f := range result {
+			assert.True(t, expected[f])
+		}
+	})
+}
+
+func TestRemoveDuplicateFlags(t *testing.T) {
+	t.Parallel()
+
+	longShortFlags := map[string]string{
+		"--flag1": "-f1",
+		"--flag2": "-f2",
+		"--flag3": "-f3",
+	}
+
+	t.Run("No duplications", func(t *testing.T) {
+		flags := map[string]string{
+			"--flag1": "--flag1=1",
+			"-f2":     "-f2=2",
+			"--flag3": "--flag3",
+		}
+		expected := map[string]string{
+			"--flag1": "--flag1=1",
+			"-f2":     "-f2=2",
+			"--flag3": "--flag3",
+		}
+		removeDuplicateFlags(flags, longShortFlags)
+		assert.Equal(t, len(expected), len(flags))
+		for k, v := range flags {
+			assert.Equal(t, expected[k], v)
+		}
+	})
+
+	t.Run("Duplications", func(t *testing.T) {
+		flags := map[string]string{
+			"--flag1": "--flag1=1",
+			"-f1":     "-f1=2",
+			"--flag2": "--flag2=1",
+			"-f2":     "-f2=2",
+			"--flag3": "--flag3",
+			"-f3":     "-f3",
+		}
+		expected := map[string]string{
+			"--flag1": "--flag1=1",
+			"--flag2": "--flag2=1",
+			"--flag3": "--flag3",
+		}
+		removeDuplicateFlags(flags, longShortFlags)
+		assert.Equal(t, len(expected), len(flags))
+		for k, v := range flags {
 			assert.Equal(t, expected[k], v)
 		}
 	})

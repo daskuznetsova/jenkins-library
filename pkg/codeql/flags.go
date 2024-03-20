@@ -42,15 +42,6 @@ func AppendFlagIfNotPresent(cmd []string, flagToCheck []string, appendFlag []str
 
 func ParseCustomFlags(flagsStr string) map[string]string {
 	flagsMap := make(map[string]string)
-
-	//for _, flag := range strings.Fields(flagsStr) {
-	//	if strings.Contains(flag, "=") {
-	//		split := strings.SplitN(flag, "=", 2)
-	//		flagsMap[split[0]] = flag
-	//	} else {
-	//		flagsMap[flag] = flag
-	//	}
-	//}
 	for _, flag := range getFlags(flagsStr) {
 		if strings.Contains(flag, "=") {
 			split := strings.SplitN(flag, "=", 2)
@@ -101,9 +92,7 @@ func getFlags(input string) []string {
 		}
 		flag += string(c)
 	}
-	//if flag != "" {
 	result = append(result, flag)
-	//}
 	return result
 }
 
