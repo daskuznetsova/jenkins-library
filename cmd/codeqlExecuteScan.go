@@ -406,6 +406,25 @@ func checkForCompliance(scanResults []codeql.CodeqlFindings, config *codeqlExecu
 	return nil
 }
 
+func addDataToInfluxDB(repoInfo *codeql.RepoInfo, querySuite string, scanResults []codeql.CodeqlFindings, influx *codeqlExecuteScanInflux) error {
+	influx.codeql_data.fields.repositoryURL = repoInfo.FullUrl
+	influx.codeql_data.fields.repositoryReferenceURL = repoInfo.FullRef
+	influx.codeql_data.fields.codeScanningLink = repoInfo.ScanUrl
+	influx.codeql_data.fields.querySuite = querySuite
+
+	for _, sr := range scanResults {
+		if sr.ClassificationName == codeql.AuditAll {
+			influx.codeql_data.fields.auditAllAudited = sr.Audited
+			influx.codeql_data.fields.auditAllTotal = sr.Total
+		}
+		if sr.ClassificationName == codeql.Optional {
+			influx.codeql_data.fields.optionalAudited = sr.Audited
+			influx.codeql_data.fields.optionalTotal = sr.Total
+		}
+	}
+	return nil
+}
+
 func getMavenSettings(buildCmd string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) string {
 	params := ""
 	if len(buildCmd) > 0 && config.BuildTool == "maven" && !strings.Contains(buildCmd, "--global-settings") && !strings.Contains(buildCmd, "--settings") {
@@ -431,23 +450,4 @@ func updateCmdFlagWithMavenSettings(config *codeqlExecuteScanOptions, customFlag
 	buildCmd += getMavenSettings(buildCmd, config, utils)
 	customFlags["--command"] = buildCmd
 	delete(customFlags, "-c")
-}
-
-func addDataToInfluxDB(repoInfo *codeql.RepoInfo, querySuite string, scanResults []codeql.CodeqlFindings, influx *codeqlExecuteScanInflux) error {
-	influx.codeql_data.fields.repositoryURL = repoInfo.FullUrl
-	influx.codeql_data.fields.repositoryReferenceURL = repoInfo.FullRef
-	influx.codeql_data.fields.codeScanningLink = repoInfo.ScanUrl
-	influx.codeql_data.fields.querySuite = querySuite
-
-	for _, sr := range scanResults {
-		if sr.ClassificationName == codeql.AuditAll {
-			influx.codeql_data.fields.auditAllAudited = sr.Audited
-			influx.codeql_data.fields.auditAllTotal = sr.Total
-		}
-		if sr.ClassificationName == codeql.Optional {
-			influx.codeql_data.fields.optionalAudited = sr.Audited
-			influx.codeql_data.fields.optionalTotal = sr.Total
-		}
-	}
-	return nil
 }
