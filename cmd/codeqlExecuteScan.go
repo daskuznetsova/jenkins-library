@@ -164,6 +164,7 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 
 		err = uploadSarifResults(config, token, repoInfo, utils)
 		if err != nil {
+			log.Entry().WithError(err).Error("failed to upload sarif results")
 			return reports, err
 		}
 
@@ -255,7 +256,6 @@ func runGithubUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.R
 		return "", err
 	}
 
-	log.Entry().Error("failed to upload sarif results")
 	url := strings.TrimSpace(bufferOut.String())
 	return url, nil
 }
@@ -380,6 +380,7 @@ func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.Re
 		config.TargetGithubRepoURL,
 	)
 	if err != nil {
+		log.Entry().WithError(err).Error("failed to create github uploader")
 		return err
 	}
 	targetCommitId, err := repoUploader.UploadProjectToGithub()
