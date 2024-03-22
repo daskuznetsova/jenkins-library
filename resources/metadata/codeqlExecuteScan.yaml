@@ -209,6 +209,30 @@ spec:
           - PARAMETERS
         aliases:
           - name: maven/globalSettingsFile
+      - name: filterPattern
+        type: string
+        description: |
+          The pattern to include/exclude files/folders from scanning results.
+          Patterns should be divided by space, e.g. "-**/** +**/src/**/*".
+          [+/-]<file pattern>[:<rule pattern>]
+        scope:
+          - STEPS
+          - STAGES
+          - PARAMETERS
+      - name: includePattern
+        type: string
+        description: The pattern to include files/folders in scanning results.
+        scope:
+          - STEPS
+          - STAGES
+          - PARAMETERS
+      - name: excludePattern
+        type: string
+        description: The pattern to exclude files/folders from scanning results.
+        scope:
+          - STEPS
+          - STAGES
+          - PARAMETERS
   containers:
     - image: ""
   outputs:

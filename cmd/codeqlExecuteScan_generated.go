@@ -43,6 +43,9 @@ type codeqlExecuteScanOptions struct {
 	CheckForCompliance          bool   `json:"checkForCompliance,omitempty"`
 	ProjectSettingsFile         string `json:"projectSettingsFile,omitempty"`
 	GlobalSettingsFile          string `json:"globalSettingsFile,omitempty"`
+	FilterPattern               string `json:"filterPattern,omitempty"`
+	IncludePattern              string `json:"includePattern,omitempty"`
+	ExcludePattern              string `json:"excludePattern,omitempty"`
 }
 
 type codeqlExecuteScanInflux struct {
@@ -267,6 +270,9 @@ func addCodeqlExecuteScanFlags(cmd *cobra.Command, stepConfig *codeqlExecuteScan
 	cmd.Flags().BoolVar(&stepConfig.CheckForCompliance, "checkForCompliance", false, "If set to true, the piper step checks for compliance based on vulnerability threadholds. Example - If total vulnerabilites are 10 and vulnerabilityThresholdTotal is set as 0, then the steps throws an compliance error.")
 	cmd.Flags().StringVar(&stepConfig.ProjectSettingsFile, "projectSettingsFile", os.Getenv("PIPER_projectSettingsFile"), "Path to the mvn settings file that should be used as project settings file.")
 	cmd.Flags().StringVar(&stepConfig.GlobalSettingsFile, "globalSettingsFile", os.Getenv("PIPER_globalSettingsFile"), "Path to the mvn settings file that should be used as global settings file.")
+	cmd.Flags().StringVar(&stepConfig.FilterPattern, "filterPattern", os.Getenv("PIPER_filterPattern"), "The pattern to include/exclude files/folders from scanning results. Patterns should be divided by space, e.g. \"-**/** +**/src/**/*\"")
+	cmd.Flags().StringVar(&stepConfig.IncludePattern, "includePattern", os.Getenv("PIPER_includePattern"), "The pattern to include files/folders in scanning results.")
+	cmd.Flags().StringVar(&stepConfig.ExcludePattern, "excludePattern", os.Getenv("PIPER_excludePattern"), "The pattern to exclude files/folders from scanning results.")
 
 	cmd.MarkFlagRequired("buildTool")
 }
@@ -504,6 +510,33 @@ func codeqlExecuteScanMetadata() config.StepData {
 						Mandatory:   false,
 						Aliases:     []config.Alias{{Name: "maven/globalSettingsFile"}},
 						Default:     os.Getenv("PIPER_globalSettingsFile"),
+					},
+					{
+						Name:        "filterPattern",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"STEPS", "STAGES", "PARAMETERS"},
+						Type:        "string",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     os.Getenv("PIPER_filterPattern"),
+					},
+					{
+						Name:        "includePattern",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"STEPS", "STAGES", "PARAMETERS"},
+						Type:        "string",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     os.Getenv("PIPER_includePattern"),
+					},
+					{
+						Name:        "excludePattern",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"STEPS", "STAGES", "PARAMETERS"},
+						Type:        "string",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     os.Getenv("PIPER_excludePattern"),
 					},
 				},
 			},
