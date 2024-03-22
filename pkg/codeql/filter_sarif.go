@@ -54,11 +54,18 @@ func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 		if err != nil {
 			return nil, err
 		}
+		s := "positive"
+		if !sign {
+			s = "negative"
+		}
+		log.Entry().Debugf("files: %s	rules: %s	(%s)", filePattern, rulePattern, s)
 	}
 	return patterns, nil
 }
 
 func parsePattern(line string) (bool, string, string, error) {
+	log.Entry().Debugf("start parsePattern %s", line)
+
 	sign := true
 	filePattern := ""
 	rulePattern := ""
@@ -99,6 +106,8 @@ func parsePattern(line string) (bool, string, string, error) {
 	if rulePattern == "" {
 		rulePattern = "**"
 	}
+
+	log.Entry().Debugf("rulePattern %s, filePattern %s", rulePattern, filePattern)
 
 	return sign, filePattern, rulePattern, nil
 }
