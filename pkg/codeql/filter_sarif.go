@@ -257,7 +257,7 @@ func FilterSarif(input string, output string, patterns []*Pattern) error {
 
 func Filter() error {
 	log.Entry().Debugf("run filter-sarif.py")
-	c := exec.Command("filter-sarif/filter_sarif.py")
+	c := exec.Command(".pipeline/filter_sarif.py")
 	if err := c.Run(); err != nil {
 		log.Entry().WithError(err).Error("failed to filter sarif")
 		return err
