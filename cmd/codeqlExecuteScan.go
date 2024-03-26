@@ -377,13 +377,12 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 			return reports, err
 		}
 		err = codeql.FilterSarif(filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
-			filepath.Join(config.ModulePath, "target", "codeqlReport-filtered.sarif"),
+			filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
 			patterns)
 		if err != nil {
 			log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
 			return reports, err
 		}
-		reports = append(reports, piperutils.Path{Target: filepath.Join(config.ModulePath, "target", "codeqlReport-filtered.sarif")})
 	}
 
 	if !config.UploadResults {
