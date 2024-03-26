@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -135,21 +134,29 @@ func matchPathAndRule(uri string, ruleId string, patterns []*Pattern) (bool, err
 func matchComponent(patternComponent string, fileNameComponent string) bool {
 	if len(patternComponent) == 0 && len(fileNameComponent) == 0 {
 		return true
-	} else if len(patternComponent) == 0 {
+	}
+	if len(patternComponent) == 0 {
 		return false
-	} else if len(fileNameComponent) == 0 {
+	}
+	if len(fileNameComponent) == 0 {
 		return patternComponent == "*"
-	} else if string(patternComponent[0]) == "*" {
-		return matchComponent(patternComponent, fileNameComponent[1:]) || matchComponent(patternComponent[1:], fileNameComponent)
-	} else if string(patternComponent[0]) == "?" {
-		return matchComponent(patternComponent[1:], fileNameComponent[1:])
-	} else if string(patternComponent[0]) == "\\" {
-		return len(patternComponent) >= 2 && string(patternComponent[1]) == string(fileNameComponent[0]) && matchComponent(string(patternComponent[2:]), string(fileNameComponent[1:]))
-	} else if string(patternComponent[0]) != string(fileNameComponent[0]) {
-		return false
-	} else {
+	}
+	if string(patternComponent[0]) == "*" {
+		return matchComponent(patternComponent, fileNameComponent[1:]) ||
+			matchComponent(patternComponent[1:], fileNameComponent)
+	}
+	if string(patternComponent[0]) == "?" {
 		return matchComponent(patternComponent[1:], fileNameComponent[1:])
 	}
+	if string(patternComponent[0]) == "\\" {
+		return len(patternComponent) >= 2 && patternComponent[1] == fileNameComponent[0] &&
+			matchComponent(patternComponent[2:], fileNameComponent[1:])
+	}
+	if patternComponent[0] != fileNameComponent[0] {
+		return false
+	}
+
+	return matchComponent(patternComponent[1:], fileNameComponent[1:])
 }
 
 func matchComponents(patternComponents []string, fileNameComponents []string) bool {
@@ -163,16 +170,21 @@ func matchComponents(patternComponents []string, fileNameComponents []string) bo
 		return len(patternComponents) == 1 && patternComponents[0] == "**"
 	}
 	if patternComponents[0] == "**" {
-		return matchComponents(patternComponents, fileNameComponents[1:]) || matchComponents(patternComponents[1:], fileNameComponents)
+		return matchComponents(patternComponents, fileNameComponents[1:]) ||
+			matchComponents(patternComponents[1:], fileNameComponents)
 	} else {
-		return matchComponent(patternComponents[0], fileNameComponents[0]) && matchComponents(patternComponents[1:], fileNameComponents[1:])
+		return matchComponent(patternComponents[0], fileNameComponents[0]) &&
+			matchComponents(patternComponents[1:], fileNameComponents[1:])
 	}
 }
 
 func match(pattern string, fileName string) (bool, error) {
-	re1 := regexp.MustCompile(`[^/\\]\*\*`)
-	re2 := regexp.MustCompile(`^\\*\\*[^/]`)
-	re3 := regexp.MustCompile(`[^\\]\*\*[^/]`)
+	//re1 := regexp.MustCompile(`[^/\\]\*\*`)
+	re1 := regexp.MustCompile(`[^\x2f\x5c]\*\*`)
+	//re2 := regexp.MustCompile(`^\\*\\*[^/]`)
+	re2 := regexp.MustCompile(`^\*\*[^/]`)
+	//re3 := regexp.MustCompile(`[^\\]\*\*[^/]`)
+	re3 := regexp.MustCompile(`[^\x5c]\*\*[^/]`)
 
 	if re1.MatchString(pattern) || re2.MatchString(pattern) || re3.MatchString(pattern) {
 		return false, fmt.Errorf("`**` in %v not alone between path separators \n", pattern)
@@ -184,8 +196,9 @@ func match(pattern string, fileName string) (bool, error) {
 		pattern = strings.Replace(pattern, "**/**", "**", -1)
 	}
 
+	splitter := regexp.MustCompile(`[\\/]+`)
 	patternComponents := strings.Split(pattern, "/")
-	fileNameComponents := strings.Split(fileName, "/")
+	fileNameComponents := splitter.Split(fileName, -1)
 
 	return matchComponents(patternComponents, fileNameComponents), nil
 
@@ -252,15 +265,5 @@ func FilterSarif(input string, output string, patterns []*Pattern) error {
 	}
 
 	log.Entry().Infof("Successfully written the JSON log to %s", output)
-	return nil
-}
-
-func Filter() error {
-	log.Entry().Debugf("run filter-sarif.py")
-	c := exec.Command(".pipeline/filter_sarif.py")
-	if err := c.Run(); err != nil {
-		log.Entry().WithError(err).Error("failed to filter sarif")
-		return err
-	}
 	return nil
 }

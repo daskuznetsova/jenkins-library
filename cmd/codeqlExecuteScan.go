@@ -371,15 +371,14 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	var scanResults []codeql.CodeqlFindings
 
 	if len(config.FilterPattern) > 0 {
-		//patterns, err := codeql.ParsePatterns(config.FilterPattern)
-		//if err != nil {
-		//	log.Entry().WithError(err).Error("failed to parse given filterPattern")
-		//	return reports, err
-		//}
-		//err = codeql.FilterSarif(filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
-		//	filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
-		//	patterns)
-		err = codeql.Filter()
+		patterns, err := codeql.ParsePatterns(config.FilterPattern)
+		if err != nil {
+			log.Entry().WithError(err).Error("failed to parse given filterPattern")
+			return reports, err
+		}
+		err = codeql.FilterSarif(filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
+			filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
+			patterns)
 		if err != nil {
 			log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
 			return reports, err
