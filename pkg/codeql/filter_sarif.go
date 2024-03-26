@@ -224,42 +224,37 @@ func FilterSarif(input string, output string, patterns []*Pattern) error {
 	}
 
 	if runs, ok := sarif["runs"].([]interface{}); ok {
-		for runId, run := range runs {
-			runMap, ok := run.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			if results, ok := runMap["results"].([]interface{}); ok {
-				for resultId, result := range results {
-					resultMap, ok := result.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					if locations, ok := resultMap["locations"].([]interface{}); ok {
-						newLocations := []interface{}{}
-						for _, location := range locations {
-							locationMap, ok := location.(map[string]interface{})
-							if !ok {
-								continue
+		//newRuns := []interface{}{}
+		for _, run := range runs {
+			if runMap, ok := run.(map[string]interface{}); ok {
+				if results, ok := runMap["results"].([]interface{}); ok {
+					newResults := []interface{}{}
+					for _, result := range results {
+						if resultMap, ok := result.(map[string]interface{}); ok {
+							//newLocations := []interface{}{}
+							if locations, ok := resultMap["locations"].([]interface{}); ok {
+								for locationId, location := range locations {
+									if locationMap, ok := location.(map[string]interface{}); ok {
+										uri := locationMap["physicalLocation"].(map[string]interface{})["artifactLocation"].(map[string]interface{})["uri"].(string)
+										ruleId := resultMap["ruleId"].(string)
+										matched, err := matchPathAndRule(uri, ruleId, patterns)
+										if err != nil {
+											return err
+										}
+										if uri != "" && !matched {
+											log.Entry().Infof("removed %v from results", uri)
+											locations = append(locations[:locationId], locations[locationId+1:]...)
+										}
+									}
+								}
+								if len(locations) == 0 {
+									newResults = append(newResults, result)
+								}
 							}
-							uri := locationMap["physicalLocation"].(map[string]interface{})["artifactLocation"].(map[string]interface{})["uri"].(string)
-							ruleId := resultMap["ruleId"].(string)
-							matched, err := matchPathAndRule(uri, ruleId, patterns)
-							if err != nil {
-								return err
-							}
-							if uri == "" || matched {
-								newLocations = append(newLocations, location)
-							} else {
-								log.Entry().Infof("removed %v from results", uri)
-							}
-
 						}
-						resultMap["locations"] = newLocations
 					}
-					results[resultId] = resultMap
+					runMap["results"] = newResults
 				}
-				runs[runId] = results
 			}
 		}
 	}
