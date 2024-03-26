@@ -264,7 +264,7 @@ func FilterSarif(input string, output string, patterns []*Pattern) error {
 		}
 	}
 
-	log.Entry().Debug(sarif)
+	//log.Entry().Debug(sarif)
 
 	//for runId, run := range sarif.Runs {
 	//	if run.Results != nil {
@@ -309,7 +309,7 @@ func FilterSarif(input string, output string, patterns []*Pattern) error {
 
 	writer := json.NewEncoder(file)
 	writer.SetIndent("", "    ")
-	err = writer.Encode(outputSarif)
+	err = writer.Encode(sarif)
 	if err != nil {
 		return fmt.Errorf("failed to encode filtered sarif file: %s", err)
 	}
