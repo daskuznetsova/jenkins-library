@@ -205,7 +205,7 @@ func match(pattern string, fileName string) (bool, error) {
 }
 
 func FilterSarif(input string, output string, patterns []*Pattern) error {
-	outputSarif := Sarif{}
+	//outputSarif := Sarif{}
 
 	var sarif map[string]interface{}
 
