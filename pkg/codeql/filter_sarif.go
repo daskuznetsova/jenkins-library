@@ -236,6 +236,8 @@ func FilterSarif(input string, output string, patterns []*Pattern) error {
 						}
 						if uri == "" || matched {
 							newLocations = append(newLocations, location)
+						} else {
+							log.Entry().Infof("removed %v from results", uri)
 						}
 					}
 					if len(newLocations) > 0 {
