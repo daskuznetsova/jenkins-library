@@ -371,17 +371,9 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	var scanResults []codeql.CodeqlFindings
 
 	if len(config.FilterPattern) > 0 {
-		patterns, err := codeql.ParsePatterns(config.FilterPattern)
+		err = filterSarif(config)
 		if err != nil {
-			log.Entry().WithError(err).Error("failed to parse given filterPattern")
-			return reports, err
-		}
-		err = codeql.FilterSarif(filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
-			filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"),
-			patterns)
-		if err != nil {
-			log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
-			return reports, err
+			return reports, errors.Wrap(err, "failed to filter sarif file")
 		}
 	}
 
@@ -440,6 +432,35 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	}
 
 	return reports, nil
+}
+
+func filterSarif(config *codeqlExecuteScanOptions) error {
+	log.Entry().Infof("Results will be filtered by pattern %s", config.FilterPattern)
+	patterns, err := codeql.ParsePatterns(config.FilterPattern)
+	if err != nil {
+		log.Entry().WithError(err).Error("failed to parse given filterPattern")
+		return err
+	}
+
+	sarif, err := codeql.ReadSarifFile(filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"))
+	if err != nil {
+		log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
+		return err
+	}
+
+	sarif, err = codeql.ProcessSarif(sarif, patterns)
+	if err != nil {
+		log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
+		return err
+	}
+
+	err = codeql.WriteSarifFile(filepath.Join(config.ModulePath, "target", "codeqlReport.sarif"), sarif)
+	if err != nil {
+		log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
+		return err
+	}
+	log.Entry().Info("Results successfully filtered")
+	return nil
 }
 
 func addDataToInfluxDB(repoUrl, repoRef, repoScanUrl, querySuite string, scanResults []codeql.CodeqlFindings, influx *codeqlExecuteScanInflux) {

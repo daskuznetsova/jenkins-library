@@ -64,8 +64,6 @@ func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 }
 
 func parsePattern(line string) (bool, string, string, error) {
-	log.Entry().Debugf("start parsePattern %s", line)
-
 	sign := true
 	filePattern := ""
 	rulePattern := ""
@@ -110,6 +108,101 @@ func parsePattern(line string) (bool, string, string, error) {
 	log.Entry().Debugf("rulePattern %s, filePattern %s", rulePattern, filePattern)
 
 	return sign, filePattern, rulePattern, nil
+}
+
+func ReadSarifFile(input string) (map[string]interface{}, error) {
+	var sarif map[string]interface{}
+	file, err := os.Open(input)
+	defer file.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open sarif file: %s", err)
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&sarif)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Decode the JSON: %s", err)
+	}
+	return sarif, nil
+}
+
+func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]interface{}, error) {
+	runs, ok := sarif["runs"].([]interface{})
+	if !ok {
+		return sarif, nil
+	}
+
+	for _, run := range runs {
+		runMap, ok := run.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		results, ok := runMap["results"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		newResults := []interface{}{}
+		for _, result := range results {
+			resultMap, ok := result.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			locations, ok := resultMap["locations"].([]interface{})
+			if !ok {
+				continue
+			}
+
+			newLocations := []interface{}{}
+			for _, location := range locations {
+				locationMap, ok := location.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				uri, ok := locationMap["physicalLocation"].(map[string]interface{})["artifactLocation"].(map[string]interface{})["uri"].(string)
+				if !ok {
+					continue
+				}
+				ruleId := resultMap["ruleId"].(string)
+				matched, err := matchPathAndRule(uri, ruleId, patterns)
+				if err != nil {
+					return nil, err
+				}
+
+				if uri != "" && !matched {
+					log.Entry().Infof("removed %v from results", uri)
+					newLocations = append(newLocations, location)
+				}
+			}
+
+			if len(newLocations) == 0 {
+				resultMap["locations"] = newLocations
+				newResults = append(newResults, result)
+			}
+		}
+
+		runMap["results"] = newResults
+	}
+
+	return sarif, nil
+}
+
+func WriteSarifFile(output string, sarif map[string]interface{}) error {
+	file, err := os.Create(output)
+	defer file.Close()
+	if err != nil {
+		return fmt.Errorf("failed to create filtered sarif file: %s", err)
+	}
+	writer := json.NewEncoder(file)
+	writer.SetIndent("", "    ")
+	err = writer.Encode(sarif)
+	if err != nil {
+		return fmt.Errorf("failed to encode filtered sarif file: %s", err)
+	}
+	log.Entry().Infof("Successfully written the JSON log to %s", output)
+	return nil
 }
 
 // implements glob matching
@@ -179,11 +272,8 @@ func matchComponents(patternComponents []string, fileNameComponents []string) bo
 }
 
 func match(pattern string, fileName string) (bool, error) {
-	//re1 := regexp.MustCompile(`[^/\\]\*\*`)
 	re1 := regexp.MustCompile(`[^\x2f\x5c]\*\*`)
-	//re2 := regexp.MustCompile(`^\\*\\*[^/]`)
 	re2 := regexp.MustCompile(`^\*\*[^/]`)
-	//re3 := regexp.MustCompile(`[^\\]\*\*[^/]`)
 	re3 := regexp.MustCompile(`[^\x5c]\*\*[^/]`)
 
 	if re1.MatchString(pattern) || re2.MatchString(pattern) || re3.MatchString(pattern) {
@@ -202,113 +292,4 @@ func match(pattern string, fileName string) (bool, error) {
 
 	return matchComponents(patternComponents, fileNameComponents), nil
 
-}
-
-func FilterSarif(input string, output string, patterns []*Pattern) error {
-	//outputSarif := Sarif{}
-
-	var sarif map[string]interface{}
-
-	file, err := os.Open(input)
-	defer file.Close()
-	if err != nil {
-		return fmt.Errorf("failed to open sarif file: %s", err)
-	}
-
-	decoder := json.NewDecoder(file)
-	//sarif := Sarif{}
-
-	err = decoder.Decode(&sarif)
-	if err != nil {
-		return fmt.Errorf("failed to Decode the JSON: %s", err)
-	}
-
-	if runs, ok := sarif["runs"].([]interface{}); ok {
-		//newRuns := []interface{}{}
-		for _, run := range runs {
-			if runMap, ok := run.(map[string]interface{}); ok {
-				if results, ok := runMap["results"].([]interface{}); ok {
-					newResults := []interface{}{}
-					for _, result := range results {
-						if resultMap, ok := result.(map[string]interface{}); ok {
-							//newLocations := []interface{}{}
-							if locations, ok := resultMap["locations"].([]interface{}); ok {
-								for locationId, location := range locations {
-									if locationMap, ok := location.(map[string]interface{}); ok {
-										uri := locationMap["physicalLocation"].(map[string]interface{})["artifactLocation"].(map[string]interface{})["uri"].(string)
-										ruleId := resultMap["ruleId"].(string)
-										matched, err := matchPathAndRule(uri, ruleId, patterns)
-										if err != nil {
-											return err
-										}
-										if uri != "" && !matched {
-											log.Entry().Infof("removed %v from results", uri)
-											locations = append(locations[:locationId], locations[locationId+1:]...)
-										}
-									}
-								}
-								if len(locations) == 0 {
-									newResults = append(newResults, result)
-								}
-							}
-						}
-					}
-					runMap["results"] = newResults
-				}
-			}
-		}
-	}
-
-	//log.Entry().Debug(sarif)
-
-	//for runId, run := range sarif.Runs {
-	//	if run.Results != nil {
-	//		//newResults := []Result{}
-	//		results := run.Results
-	//		for resultId, result := range run.Results {
-	//			if result.Locations != nil {
-	//				locations := result.Locations
-	//				newLocations := []Location{}
-	//				for locationId, location := range result.Locations {
-	//					uri := location.PhysicalLocation.ArtifactLocation.Uri
-	//					ruleId := result.RuleID
-	//					matched, err := matchPathAndRule(uri, ruleId, patterns)
-	//					if err != nil {
-	//						return err
-	//					}
-	//					if uri == "" || matched {
-	//						newLocations = append(newLocations, location)
-	//					} else {
-	//						log.Entry().Infof("removed %v from results", uri)
-	//					}
-	//				}
-	//				//if len(newLocations) > 0 {
-	//				//	result.Locations = newLocations
-	//				//	newResults = append(newResults, result)
-	//				//
-	//				//}
-	//				results[resultId].Locations = locations
-	//			}
-	//		}
-	//		run.Results = results
-	//		//outputSarif.Runs = append(outputSarif.Runs, run)
-	//	}
-	//	sarif.Runs[runId] = run
-	//}
-
-	file, err = os.Create(output)
-	defer file.Close()
-	if err != nil {
-		return fmt.Errorf("failed to create filtered sarif file: %s", err)
-	}
-
-	writer := json.NewEncoder(file)
-	writer.SetIndent("", "    ")
-	err = writer.Encode(sarif)
-	if err != nil {
-		return fmt.Errorf("failed to encode filtered sarif file: %s", err)
-	}
-
-	log.Entry().Infof("Successfully written the JSON log to %s", output)
-	return nil
 }
