@@ -45,50 +45,51 @@ func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 	patterns := []*Pattern{}
 	patternsSplit := strings.Split(filterPattern, " ")
 	for _, pattern := range patternsSplit {
-		sign, filePattern, rulePattern, err := parsePattern(pattern)
-		patterns = append(patterns, &Pattern{
-			sign:        sign,
-			filePattern: filePattern,
-			rulePattern: rulePattern,
-		})
+		parsedPattern, err := parsePattern(pattern)
 		if err != nil {
 			return nil, err
 		}
-		s := "positive"
-		if !sign {
-			s = "negative"
-		}
-		log.Entry().Debugf("files: %s	rules: %s	(%s)", filePattern, rulePattern, s)
+		patterns = append(patterns, parsedPattern)
+		log.Entry().Debugf("files: %s, rules: %s (include: %t)", parsedPattern.filePattern, parsedPattern.rulePattern, parsedPattern.sign)
 	}
 	return patterns, nil
 }
 
-func parsePattern(line string) (bool, string, string, error) {
+// Helper function to get sign and trim pattern
+func getSignAndTrimPattern(pattern string) (bool, string) {
 	sign := true
+
+	if strings.HasPrefix(pattern, "-") {
+		sign = false
+		pattern = strings.TrimPrefix(pattern, "-")
+	} else if strings.HasPrefix(pattern, "+") {
+		pattern = strings.TrimPrefix(pattern, "+")
+	}
+
+	return sign, pattern
+}
+
+// Helper function to separate file and rule pattern
+func separateFileAndRulePattern(pattern string) (string, string, error) {
+	escChar := '\\'
+	sepChar := ':'
 	filePattern := ""
 	rulePattern := ""
 	seenSeparator := false
-	escChar := '\\'
-	sepChar := ':'
 
-	if strings.HasPrefix(line, "-") {
-		sign = false
-		line = strings.TrimPrefix(line, "-")
-	} else if strings.HasPrefix(line, "+") {
-		line = strings.TrimPrefix(line, "+")
-	}
-
-	for i := 0; i < len(line); i++ {
-		c := rune(line[i])
+	for i := 0; i < len(pattern); i++ {
+		c := rune(pattern[i])
 
 		if c == sepChar {
 			if seenSeparator {
-				return false, "", "", fmt.Errorf("Invalid pattern: '%s'. Contains more than one separator!\n", line)
+				return "", "", fmt.Errorf("Invalid pattern: '%s'. Contains more than one separator!\n", pattern)
 			}
 			seenSeparator = true
 		} else if c == escChar {
-			nextC := rune(line[i+1])
-			if i+1 < len(line) && (nextC == '+' || nextC == '-' || nextC == escChar || nextC == sepChar) {
+			// If we find an escape character and the current position
+			// is less than total length - 1, we get the next character instead
+			nextC := rune(pattern[i+1])
+			if i+1 < len(pattern) && (nextC == '+' || nextC == '-' || nextC == escChar || nextC == sepChar) {
 				i++
 				c = nextC
 			}
@@ -101,13 +102,26 @@ func parsePattern(line string) (bool, string, string, error) {
 		}
 	}
 
+	return filePattern, rulePattern, nil
+}
+
+func parsePattern(line string) (*Pattern, error) {
+	sign, pattern := getSignAndTrimPattern(line)
+	filePattern, rulePattern, err := separateFileAndRulePattern(pattern)
+	if err != nil {
+		return nil, err
+	}
 	if rulePattern == "" {
 		rulePattern = "**"
 	}
 
 	log.Entry().Debugf("rulePattern %s, filePattern %s", rulePattern, filePattern)
 
-	return sign, filePattern, rulePattern, nil
+	return &Pattern{
+		sign:        sign,
+		filePattern: filePattern,
+		rulePattern: rulePattern,
+	}, nil
 }
 
 func ReadSarifFile(input string) (map[string]interface{}, error) {
