@@ -9,12 +9,39 @@ import (
 func TestParsePattern(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Include pattern", func(t *testing.T) {
+	t.Run("Include files, no rules", func(t *testing.T) {
 		input := "+**/src/**/*"
-		sign, filePattern, rulePattern, err := parsePattern(input)
+		pattern, err := parsePattern(input)
 		assert.NoError(t, err)
-		assert.True(t, sign)
-		assert.Equal(t, "**/src/**/*", filePattern)
-		assert.Equal(t, "**", rulePattern)
+		assert.True(t, pattern.sign)
+		assert.Equal(t, "**/src/**/*", pattern.filePattern)
+		assert.Equal(t, "**", pattern.rulePattern)
+	})
+
+	t.Run("Exclude files, no rules", func(t *testing.T) {
+		input := "-**/src/**/*"
+		pattern, err := parsePattern(input)
+		assert.NoError(t, err)
+		assert.False(t, pattern.sign)
+		assert.Equal(t, "**/src/**/*", pattern.filePattern)
+		assert.Equal(t, "**", pattern.rulePattern)
+	})
+
+	t.Run("Include files with rule", func(t *testing.T) {
+		input := "+**/src/**/*:security-rule"
+		pattern, err := parsePattern(input)
+		assert.NoError(t, err)
+		assert.True(t, pattern.sign)
+		assert.Equal(t, "**/src/**/*", pattern.filePattern)
+		assert.Equal(t, "security-rule", pattern.rulePattern)
+	})
+
+	t.Run("Exclude files with rule", func(t *testing.T) {
+		input := "-**/src/**/*:security-rule"
+		pattern, err := parsePattern(input)
+		assert.NoError(t, err)
+		assert.False(t, pattern.sign)
+		assert.Equal(t, "**/src/**/*", pattern.filePattern)
+		assert.Equal(t, "security-rule", pattern.rulePattern)
 	})
 }

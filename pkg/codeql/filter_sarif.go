@@ -85,11 +85,15 @@ func separateFileAndRulePattern(pattern string) (string, string, error) {
 				return "", "", fmt.Errorf("Invalid pattern: '%s'. Contains more than one separator!\n", pattern)
 			}
 			seenSeparator = true
+			continue
 		} else if c == escChar {
 			// If we find an escape character and the current position
 			// is less than total length - 1, we get the next character instead
-			nextC := rune(pattern[i+1])
-			if i+1 < len(pattern) && (nextC == '+' || nextC == '-' || nextC == escChar || nextC == sepChar) {
+			var nextC rune
+			if i+1 < len(pattern) {
+				nextC = rune(pattern[i+1])
+			}
+			if nextC == '+' || nextC == '-' || nextC == escChar || nextC == sepChar {
 				i++
 				c = nextC
 			}
