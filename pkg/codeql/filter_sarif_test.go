@@ -45,3 +45,37 @@ func TestParsePattern(t *testing.T) {
 		assert.Equal(t, "security-rule", pattern.rulePattern)
 	})
 }
+
+func TestMatchComponent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Path matches pattern", func(t *testing.T) {
+		filePath := "path/to/src/file.txt"
+		pattern := "**/src/*"
+		assert.True(t, matchComponent(pattern, filePath))
+	})
+
+	t.Run("Path matches exact pattern", func(t *testing.T) {
+		filePath := "file.txt"
+		pattern := "file.txt"
+		assert.True(t, matchComponent(pattern, filePath))
+	})
+
+	t.Run("Path with escape symbols matches pattern", func(t *testing.T) {
+		filePath := "/file\\ name.txt"
+		pattern := "**"
+		assert.True(t, matchComponent(pattern, filePath))
+	})
+
+	t.Run("Path doesn't match pattern", func(t *testing.T) {
+		filePath := "path/to/file.txt"
+		pattern := "**/src/*"
+		assert.False(t, matchComponent(pattern, filePath))
+	})
+
+	t.Run("Path doesn't match exact pattern", func(t *testing.T) {
+		filePath := "path/to/file.txt"
+		pattern := "file"
+		assert.False(t, matchComponent(pattern, filePath))
+	})
+}
