@@ -281,11 +281,13 @@ func matchComponents(patternComponents []string, fileNameComponents []string) bo
 		return len(patternComponents) == 1 && patternComponents[0] == "**"
 	}
 	if patternComponents[0] == "**" {
-		return matchComponents(patternComponents, fileNameComponents[1:]) ||
-			matchComponents(patternComponents[1:], fileNameComponents)
+		matchFiles := matchComponents(patternComponents, fileNameComponents[1:])
+		matchPattern := matchComponents(patternComponents[1:], fileNameComponents)
+		return matchFiles || matchPattern
 	} else {
-		return matchComponent(patternComponents[0], fileNameComponents[0]) &&
-			matchComponents(patternComponents[1:], fileNameComponents[1:])
+		matchStart := matchComponent(patternComponents[0], fileNameComponents[0])
+		matchEnd := matchComponents(patternComponents[1:], fileNameComponents[1:])
+		return matchStart && matchEnd
 	}
 }
 
@@ -305,8 +307,8 @@ func match(pattern string, fileName string) (bool, error) {
 	}
 
 	splitter := regexp.MustCompile(`[\\/]+`)
-	patternComponents := strings.Split(pattern, "/")
 	fileNameComponents := splitter.Split(fileName, -1)
+	patternComponents := strings.Split(pattern, "/")
 
 	return matchComponents(patternComponents, fileNameComponents), nil
 

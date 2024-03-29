@@ -49,33 +49,71 @@ func TestParsePattern(t *testing.T) {
 func TestMatchComponent(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Path matches pattern", func(t *testing.T) {
-		filePath := "path/to/src/file.txt"
-		pattern := "**/src/*"
+	t.Run("Components match, glob", func(t *testing.T) {
+		filePath := "file.txt"
+		pattern := "**"
 		assert.True(t, matchComponent(pattern, filePath))
 	})
 
-	t.Run("Path matches exact pattern", func(t *testing.T) {
+	t.Run("Components match, glob", func(t *testing.T) {
 		filePath := "file.txt"
 		pattern := "file.txt"
 		assert.True(t, matchComponent(pattern, filePath))
 	})
 
-	t.Run("Path with escape symbols matches pattern", func(t *testing.T) {
+	t.Run("Components don't match", func(t *testing.T) {
+		filePath := "file"
+		pattern := "file.txt"
+		assert.False(t, matchComponent(pattern, filePath))
+	})
+
+	t.Run("Component with escape symbol", func(t *testing.T) {
 		filePath := "/file\\ name.txt"
 		pattern := "**"
 		assert.True(t, matchComponent(pattern, filePath))
 	})
+}
 
-	t.Run("Path doesn't match pattern", func(t *testing.T) {
-		filePath := "path/to/file.txt"
+func TestMatchComponents(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Components match", func(t *testing.T) {
+		file := []string{
+			"path",
+			"to",
+			"src",
+			"file.txt",
+		}
+		pattern := []string{"**", "src", "*"}
+		assert.True(t, matchComponents(pattern, file))
+	})
+	t.Run("Components don't match", func(t *testing.T) {
+		file := []string{
+			"path",
+			"to",
+			"file.txt",
+		}
+		pattern := []string{"**", "src", "*"}
+		assert.False(t, matchComponents(pattern, file))
+	})
+}
+
+func TestMatch(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Match", func(t *testing.T) {
+		fileName := "path/to/src/file"
 		pattern := "**/src/*"
-		assert.False(t, matchComponent(pattern, filePath))
+		matches, err := match(pattern, fileName)
+		assert.NoError(t, err)
+		assert.True(t, matches)
 	})
 
-	t.Run("Path doesn't match exact pattern", func(t *testing.T) {
-		filePath := "path/to/file.txt"
-		pattern := "file"
-		assert.False(t, matchComponent(pattern, filePath))
+	t.Run("Don't match", func(t *testing.T) {
+		fileName := "path/to/file"
+		pattern := "**/src/*"
+		matches, err := match(pattern, fileName)
+		assert.NoError(t, err)
+		assert.False(t, matches)
 	})
 }
