@@ -50,7 +50,7 @@ func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 			return nil, err
 		}
 		patterns = append(patterns, parsedPattern)
-		log.Entry().Debugf("files: %s, rules: %s (include: %t)", parsedPattern.filePattern, parsedPattern.rulePattern, parsedPattern.sign)
+		log.Entry().Infof("files: %s, rules: %s (include: %t)", parsedPattern.filePattern, parsedPattern.rulePattern, parsedPattern.sign)
 	}
 	return patterns, nil
 }
@@ -119,7 +119,7 @@ func parsePattern(line string) (*Pattern, error) {
 		rulePattern = "**"
 	}
 
-	log.Entry().Debugf("rulePattern %s, filePattern %s", rulePattern, filePattern)
+	log.Entry().Infof("rulePattern %s, filePattern %s", rulePattern, filePattern)
 
 	return &Pattern{
 		sign:        sign,
@@ -184,14 +184,14 @@ func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string
 					continue
 				}
 				ruleId := resultMap["ruleId"].(string)
-				log.Entry().Debugf("checking location: %s", uri)
+				log.Entry().Infof("checking location: %s", uri)
 				matched, err := matchPathAndRule(uri, ruleId, patterns)
 				if err != nil {
 					return nil, err
 				}
 
 				if uri != "" && !matched {
-					log.Entry().Debugf("added location to results: %s", uri)
+					log.Entry().Infof("added location to results: %s", uri)
 					newLocations = append(newLocations, location)
 				} else {
 					log.Entry().Infof("removed %v from results", uri)
@@ -199,15 +199,15 @@ func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string
 			}
 
 			if len(newLocations) > 0 {
-				log.Entry().Debugf("added result %d with locations (len=%d)", i, len(newLocations))
+				log.Entry().Infof("added result %d with locations (len=%d)", i, len(newLocations))
 				resultMap["locations"] = newLocations
 				newResults = append(newResults, result)
-				log.Entry().Debug(result)
+				log.Entry().Info(result)
 			} else {
-				log.Entry().Debugf("empty locations, removed result %d", i)
+				log.Entry().Infof("empty locations, removed result %d", i)
 			}
 		}
-		log.Entry().Debugf("len of new results: %d", len(newResults))
+		log.Entry().Infof("len of new results: %d", len(newResults))
 		runMap["results"] = newResults
 	}
 
