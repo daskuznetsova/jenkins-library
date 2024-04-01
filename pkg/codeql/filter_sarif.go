@@ -185,12 +185,12 @@ func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string
 				}
 				ruleId := resultMap["ruleId"].(string)
 				log.Entry().Infof("checking location: %s", uri)
-				matched, err := matchPathAndRule(uri, ruleId, patterns)
+				include, err := matchPathAndRule(uri, ruleId, patterns)
 				if err != nil {
 					return nil, err
 				}
 
-				if uri != "" && !matched {
+				if uri != "" && include {
 					log.Entry().Infof("added location to results: %s", uri)
 					newLocations = append(newLocations, location)
 				} else {
@@ -234,18 +234,25 @@ func WriteSarifFile(output string, sarif map[string]interface{}) error {
 func matchPathAndRule(uri string, ruleId string, patterns []*Pattern) (bool, error) {
 	result := true
 	for _, p := range patterns {
+		log.Entry().Infof("match rule %s to pattern %s", ruleId, p.rulePattern)
 		matchedRule, err := match(p.rulePattern, ruleId)
 		if err != nil {
 			return false, err
 		}
+		log.Entry().Infof("matched: %t", matchedRule)
+
+		log.Entry().Infof("match file %s to pattern %s", uri, p.filePattern)
 		matchedFile, err := match(p.filePattern, uri)
 		if err != nil {
 			return false, err
 		}
+		log.Entry().Infof("matched: %t", matchedFile)
+
 		if matchedRule && matchedFile {
 			result = p.sign
 		}
 	}
+	log.Entry().Infof("matchPathAndRule: %t", result)
 	return result, nil
 }
 
