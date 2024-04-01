@@ -195,7 +195,7 @@ func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string
 				}
 			}
 
-			if len(newLocations) == 0 {
+			if len(newLocations) > 0 {
 				resultMap["locations"] = newLocations
 				newResults = append(newResults, result)
 			}
