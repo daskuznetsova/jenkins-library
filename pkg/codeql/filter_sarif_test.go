@@ -109,6 +109,14 @@ func TestMatch(t *testing.T) {
 		assert.True(t, matches)
 	})
 
+	t.Run("Match", func(t *testing.T) {
+		fileName := "path/to/src/folder/some/files"
+		pattern := "**/src/*"
+		matches, err := match(pattern, fileName)
+		assert.NoError(t, err)
+		assert.True(t, matches)
+	})
+
 	t.Run("Don't match", func(t *testing.T) {
 		fileName := "path/to/file"
 		pattern := "**/src/*"
