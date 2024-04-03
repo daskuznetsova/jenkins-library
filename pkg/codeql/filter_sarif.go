@@ -43,7 +43,7 @@ type Sarif struct {
 
 func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 	patterns := []*Pattern{}
-	patternsSplit := strings.Split(filterPattern, " ")
+	patternsSplit := split(filterPattern)
 	for _, pattern := range patternsSplit {
 		parsedPattern, err := parsePattern(pattern)
 		if err != nil {
@@ -53,6 +53,16 @@ func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 		log.Entry().Infof("files: %s, rules: %s (include: %t)", parsedPattern.filePattern, parsedPattern.rulePattern, parsedPattern.sign)
 	}
 	return patterns, nil
+}
+
+func split(input string) []string {
+	spacePlaceholder := "␣" // using the unicode character for a visual space as a placeholder, unlikely to be in original string
+	input = strings.Replace(input, "\\ ", spacePlaceholder, -1)
+	patterns := strings.Split(input, " ")
+	for i, p := range patterns {
+		patterns[i] = strings.Replace(p, spacePlaceholder, "\\ ", -1)
+	}
+	return patterns
 }
 
 // Helper function to get sign and trim pattern
