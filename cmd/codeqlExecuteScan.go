@@ -486,7 +486,7 @@ func filterSarif(config *codeqlExecuteScanOptions) error {
 		return err
 	}
 
-	sarif, err = codeql.ProcessSarif(sarif, patterns)
+	sarif, err = codeql.FilterSarif(sarif, patterns)
 	if err != nil {
 		log.Entry().WithError(err).Error("failed to filter sarif files with given filterPattern")
 		return err

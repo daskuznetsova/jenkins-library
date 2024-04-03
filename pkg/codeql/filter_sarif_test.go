@@ -701,3 +701,77 @@ func TestMatchPathAndRule(t *testing.T) {
 		assert.True(t, include)
 	})
 }
+
+func TestFilterSarif(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Nothing to exclude", func(t *testing.T) {
+		input := map[string]interface{}{
+			"runs": []interface{}{
+				map[string]interface{}{
+					"results": []interface{}{
+						map[string]interface{}{
+							"ruleId": "rule1",
+							"locations": []interface{}{
+								map[string]interface{}{
+									"physicalLocation": map[string]interface{}{
+										"artifactLocation": map[string]interface{}{
+											"uri": "myapp/modules/main.go",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		patterns := []*Pattern{
+			{
+				sign:        false,
+				filePattern: "**/src/**",
+				rulePattern: "**",
+			},
+		}
+		filteredSarif, err := FilterSarif(input, patterns)
+		assert.NoError(t, err)
+		results, ok := filteredSarif["runs"].([]interface{})[0].(map[string]interface{})["results"].([]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, 1, len(results))
+	})
+
+	t.Run("Exclude single result", func(t *testing.T) {
+		input := map[string]interface{}{
+			"runs": []interface{}{
+				map[string]interface{}{
+					"results": []interface{}{
+						map[string]interface{}{
+							"ruleId": "rule1",
+							"locations": []interface{}{
+								map[string]interface{}{
+									"physicalLocation": map[string]interface{}{
+										"artifactLocation": map[string]interface{}{
+											"uri": "myapp/modules/main.go",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		patterns := []*Pattern{
+			{
+				sign:        false,
+				filePattern: "myapp/**",
+				rulePattern: "**",
+			},
+		}
+		filteredSarif, err := FilterSarif(input, patterns)
+		assert.NoError(t, err)
+		results, ok := filteredSarif["runs"].([]interface{})[0].(map[string]interface{})["results"].([]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, 0, len(results))
+	})
+}

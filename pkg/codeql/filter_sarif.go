@@ -112,7 +112,7 @@ func separateFileAndRulePattern(pattern string) (string, string, error) {
 	return filePattern, rulePattern, nil
 }
 
-func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]interface{}, error) {
+func FilterSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]interface{}, error) {
 	runs, ok := sarif["runs"].([]interface{})
 	if !ok {
 		return sarif, nil
