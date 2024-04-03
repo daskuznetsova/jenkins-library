@@ -16,31 +16,6 @@ type Pattern struct {
 	rulePattern string
 }
 
-type ArtifactLocation struct {
-	Uri string `json:"uri"`
-}
-
-type PhysicalLocation struct {
-	ArtifactLocation ArtifactLocation `json:"artifactLocation"`
-}
-
-type Location struct {
-	PhysicalLocation PhysicalLocation `json:"physicalLocation"`
-}
-
-type Result struct {
-	RuleID    string     `json:"ruleId"`
-	Locations []Location `json:"locations"`
-}
-
-type Run struct {
-	Results []Result `json:"results"`
-}
-
-type Sarif struct {
-	Runs []Run `json:"runs"`
-}
-
 func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 	patterns := []*Pattern{}
 	patternsSplit := split(filterPattern)
