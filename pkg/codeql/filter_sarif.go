@@ -56,6 +56,9 @@ func ParsePatterns(filterPattern string) ([]*Pattern, error) {
 }
 
 func split(input string) []string {
+	if len(input) == 0 {
+		return []string{}
+	}
 	spacePlaceholder := "␣" // using the unicode character for a visual space as a placeholder, unlikely to be in original string
 	input = strings.Replace(input, "\\ ", spacePlaceholder, -1)
 	patterns := strings.Split(input, " ")
@@ -65,7 +68,23 @@ func split(input string) []string {
 	return patterns
 }
 
-// Helper function to get sign and trim pattern
+func parsePattern(line string) (*Pattern, error) {
+	sign, pattern := getSignAndTrimPattern(line)
+	filePattern, rulePattern, err := separateFileAndRulePattern(pattern)
+	if err != nil {
+		return nil, err
+	}
+	if rulePattern == "" {
+		rulePattern = "**"
+	}
+	log.Entry().Infof("rulePattern %s, filePattern %s", rulePattern, filePattern)
+	return &Pattern{
+		sign:        sign,
+		filePattern: filePattern,
+		rulePattern: rulePattern,
+	}, nil
+}
+
 func getSignAndTrimPattern(pattern string) (bool, string) {
 	sign := true
 
@@ -79,7 +98,6 @@ func getSignAndTrimPattern(pattern string) (bool, string) {
 	return sign, pattern
 }
 
-// Helper function to separate file and rule pattern
 func separateFileAndRulePattern(pattern string) (string, string, error) {
 	escChar := '\\'
 	sepChar := ':'
@@ -117,25 +135,6 @@ func separateFileAndRulePattern(pattern string) (string, string, error) {
 	}
 
 	return filePattern, rulePattern, nil
-}
-
-func parsePattern(line string) (*Pattern, error) {
-	sign, pattern := getSignAndTrimPattern(line)
-	filePattern, rulePattern, err := separateFileAndRulePattern(pattern)
-	if err != nil {
-		return nil, err
-	}
-	if rulePattern == "" {
-		rulePattern = "**"
-	}
-
-	log.Entry().Infof("rulePattern %s, filePattern %s", rulePattern, filePattern)
-
-	return &Pattern{
-		sign:        sign,
-		filePattern: filePattern,
-		rulePattern: rulePattern,
-	}, nil
 }
 
 func ReadSarifFile(input string) (map[string]interface{}, error) {
