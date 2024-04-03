@@ -130,7 +130,7 @@ func FilterSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]
 		}
 
 		newResults := []interface{}{}
-		for i, result := range results {
+		for _, result := range results {
 			resultMap, ok := result.(map[string]interface{})
 			if !ok {
 				continue
@@ -153,7 +153,6 @@ func FilterSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]
 					continue
 				}
 				ruleId := resultMap["ruleId"].(string)
-				log.Entry().Infof("checking location: %s", uri)
 				include, err := matchPathAndRule(uri, ruleId, patterns)
 				if err != nil {
 					return nil, err
@@ -168,15 +167,10 @@ func FilterSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]
 			}
 
 			if len(newLocations) > 0 {
-				log.Entry().Infof("added result %d with locations (len=%d)", i, len(newLocations))
 				resultMap["locations"] = newLocations
 				newResults = append(newResults, result)
-				log.Entry().Info(result)
-			} else {
-				log.Entry().Infof("empty locations, removed result %d", i)
 			}
 		}
-		log.Entry().Infof("len of new results: %d", len(newResults))
 		runMap["results"] = newResults
 	}
 
