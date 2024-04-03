@@ -112,21 +112,6 @@ func separateFileAndRulePattern(pattern string) (string, string, error) {
 	return filePattern, rulePattern, nil
 }
 
-func ReadSarifFile(input string) (map[string]interface{}, error) {
-	var sarif map[string]interface{}
-	file, err := os.Open(input)
-	defer file.Close()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open sarif file: %s", err)
-	}
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&sarif)
-	if err != nil {
-		return nil, fmt.Errorf("failed to Decode the JSON: %s", err)
-	}
-	return sarif, nil
-}
-
 func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]interface{}, error) {
 	runs, ok := sarif["runs"].([]interface{})
 	if !ok {
@@ -198,46 +183,63 @@ func ProcessSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string
 	return sarif, nil
 }
 
-func WriteSarifFile(output string, sarif map[string]interface{}) error {
-	file, err := os.Create(output)
-	defer file.Close()
-	if err != nil {
-		return fmt.Errorf("failed to create filtered sarif file: %s", err)
-	}
-	writer := json.NewEncoder(file)
-	writer.SetIndent("", "    ")
-	err = writer.Encode(sarif)
-	if err != nil {
-		return fmt.Errorf("failed to encode filtered sarif file: %s", err)
-	}
-	log.Entry().Infof("Successfully written the JSON log to %s", output)
-	return nil
-}
-
-// implements glob matching
-func matchPathAndRule(uri string, ruleId string, patterns []*Pattern) (bool, error) {
+func matchPathAndRule(path string, ruleId string, patterns []*Pattern) (bool, error) {
 	result := true
 	for _, p := range patterns {
-		log.Entry().Infof("match rule %s to pattern %s", ruleId, p.rulePattern)
 		matchedRule, err := match(p.rulePattern, ruleId)
 		if err != nil {
 			return false, err
 		}
-		log.Entry().Infof("matched: %t", matchedRule)
-
-		log.Entry().Infof("match file %s to pattern %s", uri, p.filePattern)
-		matchedFile, err := match(p.filePattern, uri)
+		matchedFile, err := match(p.filePattern, path)
 		if err != nil {
 			return false, err
 		}
-		log.Entry().Infof("matched: %t", matchedFile)
-
 		if matchedRule && matchedFile {
 			result = p.sign
 		}
 	}
-	log.Entry().Infof("matchPathAndRule: %t", result)
 	return result, nil
+}
+
+func match(pattern string, fileName string) (bool, error) {
+	re1 := regexp.MustCompile(`[^\x2f\x5c]\*\*`)
+	re2 := regexp.MustCompile(`^\*\*[^/]`)
+	re3 := regexp.MustCompile(`[^\x5c]\*\*[^/]`)
+
+	if re1.MatchString(pattern) || re2.MatchString(pattern) || re3.MatchString(pattern) {
+		return false, fmt.Errorf("`**` in %v not alone between path separators \n", pattern)
+	}
+
+	pattern = strings.TrimSuffix(pattern, "/")
+	fileName = strings.TrimSuffix(fileName, "/")
+	for strings.Contains(pattern, "**/**") {
+		pattern = strings.Replace(pattern, "**/**", "**", -1)
+	}
+
+	splitter := regexp.MustCompile(`[\\/]+`)
+	fileNameComponents := splitter.Split(fileName, -1)
+	patternComponents := strings.Split(pattern, "/")
+
+	return matchComponents(patternComponents, fileNameComponents), nil
+}
+
+func matchComponents(patternComponents []string, fileNameComponents []string) bool {
+	if len(patternComponents) == 0 && len(fileNameComponents) == 0 {
+		return true
+	}
+	if len(patternComponents) == 0 {
+		return false
+	}
+	if len(fileNameComponents) == 0 {
+		return len(patternComponents) == 1 && patternComponents[0] == "**"
+	}
+	if patternComponents[0] == "**" {
+		return matchComponents(patternComponents, fileNameComponents[1:]) ||
+			matchComponents(patternComponents[1:], fileNameComponents)
+	} else {
+		return matchComponent(patternComponents[0], fileNameComponents[0]) &&
+			matchComponents(patternComponents[1:], fileNameComponents[1:])
+	}
 }
 
 func matchComponent(patternComponent string, fileNameComponent string) bool {
@@ -268,46 +270,33 @@ func matchComponent(patternComponent string, fileNameComponent string) bool {
 	return matchComponent(patternComponent[1:], fileNameComponent[1:])
 }
 
-func matchComponents(patternComponents []string, fileNameComponents []string) bool {
-	if len(patternComponents) == 0 && len(fileNameComponents) == 0 {
-		return true
+func ReadSarifFile(input string) (map[string]interface{}, error) {
+	var sarif map[string]interface{}
+	file, err := os.Open(input)
+	defer file.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open sarif file: %s", err)
 	}
-	if len(patternComponents) == 0 {
-		return false
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&sarif)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Decode the JSON: %s", err)
 	}
-	if len(fileNameComponents) == 0 {
-		return len(patternComponents) == 1 && patternComponents[0] == "**"
-	}
-	if patternComponents[0] == "**" {
-		matchFiles := matchComponents(patternComponents, fileNameComponents[1:])
-		matchPattern := matchComponents(patternComponents[1:], fileNameComponents)
-		return matchFiles || matchPattern
-	} else {
-		matchStart := matchComponent(patternComponents[0], fileNameComponents[0])
-		matchEnd := matchComponents(patternComponents[1:], fileNameComponents[1:])
-		return matchStart && matchEnd
-	}
+	return sarif, nil
 }
 
-func match(pattern string, fileName string) (bool, error) {
-	re1 := regexp.MustCompile(`[^\x2f\x5c]\*\*`)
-	re2 := regexp.MustCompile(`^\*\*[^/]`)
-	re3 := regexp.MustCompile(`[^\x5c]\*\*[^/]`)
-
-	if re1.MatchString(pattern) || re2.MatchString(pattern) || re3.MatchString(pattern) {
-		return false, fmt.Errorf("`**` in %v not alone between path separators \n", pattern)
+func WriteSarifFile(output string, sarif map[string]interface{}) error {
+	file, err := os.Create(output)
+	defer file.Close()
+	if err != nil {
+		return fmt.Errorf("failed to create filtered sarif file: %s", err)
 	}
-
-	pattern = strings.TrimSuffix(pattern, "/")
-	fileName = strings.TrimSuffix(fileName, "/")
-	for strings.Contains(pattern, "**/**") {
-		pattern = strings.Replace(pattern, "**/**", "**", -1)
+	writer := json.NewEncoder(file)
+	writer.SetIndent("", "    ")
+	err = writer.Encode(sarif)
+	if err != nil {
+		return fmt.Errorf("failed to encode filtered sarif file: %s", err)
 	}
-
-	splitter := regexp.MustCompile(`[\\/]+`)
-	fileNameComponents := splitter.Split(fileName, -1)
-	patternComponents := strings.Split(pattern, "/")
-
-	return matchComponents(patternComponents, fileNameComponents), nil
-
+	log.Entry().Infof("Successfully written filtered sarif file to %s", output)
+	return nil
 }
