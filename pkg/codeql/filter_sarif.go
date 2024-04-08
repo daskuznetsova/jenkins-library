@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/SAP/jenkins-library/pkg/log"
-	"github.com/bmatcuk/doublestar/v4"
+	"github.com/bmatcuk/doublestar"
 )
 
 type Pattern struct {
