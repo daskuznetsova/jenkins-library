@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/SAP/jenkins-library/pkg/log"
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 type Pattern struct {
@@ -163,7 +164,25 @@ func FilterSarif(sarif map[string]interface{}, patterns []*Pattern) (map[string]
 	return sarif, nil
 }
 
-func matchPathAndRule(path string, ruleId string, patterns []*Pattern) (bool, error) {
+func matchPathAndRule(path, ruleId string, patterns []*Pattern) (bool, error) {
+	include := true
+	for _, p := range patterns {
+		matchedPath, err := doublestar.PathMatch(p.filePattern, path)
+		if err != nil {
+			return false, err
+		}
+		matchedRule, err := doublestar.Match(p.rulePattern, ruleId)
+		if err != nil {
+			return false, err
+		}
+		if matchedPath && matchedRule {
+			include = p.sign
+		}
+	}
+	return include, nil
+}
+
+func matchPathAndRule1(path string, ruleId string, patterns []*Pattern) (bool, error) {
 	result := true
 	for _, p := range patterns {
 		matchedRule, err := match(p.rulePattern, ruleId)
