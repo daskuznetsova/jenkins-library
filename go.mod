@@ -16,7 +16,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.19.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.31.0
 	github.com/bmatcuk/doublestar v1.3.4
-	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/bndr/gojenkins v1.1.1-0.20240109173050-c316119c46d5
 	github.com/buildpacks/lifecycle v0.18.4
 	github.com/docker/cli v24.0.6+incompatible
