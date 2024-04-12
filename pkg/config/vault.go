@@ -94,6 +94,10 @@ func (s *StepConfig) mixinVaultConfig(parameters []StepParameters, configs ...ma
 func getVaultClientFromConfig(config StepConfig, creds VaultCredentials) (vaultClient, error) {
 	address, addressOk := config.Config["vaultServerUrl"].(string)
 	// if vault isn't used it's not an error
+	log.Entry().Debugf("addressOK: %t", addressOk)
+	log.Entry().Debugf("VaultToken len: %d", len(creds.VaultToken))
+	log.Entry().Debugf("AppRoleID len: %d", len(creds.AppRoleID))
+	log.Entry().Debugf("AppRoleSecretID len: %d", len(creds.AppRoleSecretID))
 	if !addressOk || creds.VaultToken == "" && (creds.AppRoleID == "" || creds.AppRoleSecretID == "") {
 		log.Entry().Debug("Vault not configured")
 		return nil, nil
