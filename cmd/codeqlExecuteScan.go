@@ -141,7 +141,8 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 
 	if len(config.CustomCommand) > 0 {
 		log.Entry().Infof("custom command will be run: %s", config.CustomCommand)
-		err = utils.RunExecutable(config.CustomCommand)
+		cmd := strings.Split(config.CustomCommand, " ")
+		err = utils.RunExecutable(cmd[0], cmd[1:]...)
 		if err != nil {
 			log.Entry().WithError(err).Error("failed to run command %s", config.CustomCommand)
 			return reports, err
