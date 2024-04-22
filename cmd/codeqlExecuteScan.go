@@ -139,6 +139,15 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	}
 	reports = append(reports, scanReports...)
 
+	if len(config.CustomCommand) > 0 {
+		log.Entry().Infof("custom command will be run: %s", config.CustomCommand)
+		err = utils.RunExecutable(config.CustomCommand)
+		if err != nil {
+			log.Entry().WithError(err).Error("failed to run command %s", config.CustomCommand)
+			return reports, err
+		}
+	}
+
 	repoInfo, err := codeql.GetRepoInfo(config.Repository, config.AnalyzedRef, config.CommitID,
 		config.TargetGithubRepoURL, config.TargetGithubBranchName)
 	if err != nil {
