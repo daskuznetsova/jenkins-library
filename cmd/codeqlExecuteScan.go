@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -142,7 +143,6 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	if len(config.CustomCommand) > 0 {
 		err = runCustomCommand(utils, config.CustomCommand)
 		if err != nil {
-			log.Entry().WithError(err).Error("failed to run command %s", config.CustomCommand)
 			return reports, err
 		}
 	}
@@ -404,8 +404,11 @@ func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.Re
 
 func runCustomCommand(utils codeqlExecuteScanUtils, command string) error {
 	log.Entry().Infof("custom command will be run: %s", command)
-	cmd := codeql.ParseCustomCommand(command)
-	err := utils.RunExecutable(cmd[0], cmd[1:]...)
+	//cmd := codeql.ParseCustomCommand(command)
+	//err := utils.RunExecutable(cmd[0], cmd[1:]...)
+	cmd := exec.Command("sh", "-c", "echo aaa > xxx")
+
+	err := cmd.Run()
 	if err != nil {
 		log.Entry().WithError(err).Errorf("failed to run command %s", command)
 		return err
