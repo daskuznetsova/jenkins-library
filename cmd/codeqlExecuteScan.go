@@ -404,11 +404,11 @@ func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.Re
 
 func runCustomCommand(utils codeqlExecuteScanUtils, command string) error {
 	log.Entry().Infof("custom command will be run: %s", command)
-	//cmd := codeql.ParseCustomCommand(command)
+	cmd := codeql.ParseCustomCommand(command)
 	//err := utils.RunExecutable(cmd[0], cmd[1:]...)
-	cmd := exec.Command("sh", "-c", "echo aaa > xxx")
+	c := exec.Command(cmd[0], cmd[1:]...)
 
-	err := cmd.Run()
+	err := c.Run()
 	if err != nil {
 		log.Entry().WithError(err).Errorf("failed to run command %s", command)
 		return err
