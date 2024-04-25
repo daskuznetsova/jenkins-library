@@ -327,3 +327,30 @@ func TestAppendThreadsAndRam(t *testing.T) {
 		assert.Equal(t, "--ram=2000", params[2])
 	})
 }
+
+func TestParseCustomCommand(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Command without parameters", func(t *testing.T) {
+		input := "ls"
+		cmd := ParseCustomCommand(input)
+		assert.Equal(t, 1, len(cmd))
+	})
+
+	t.Run("Command with parameters", func(t *testing.T) {
+		input := "ls -la"
+		cmd := ParseCustomCommand(input)
+		assert.Equal(t, 2, len(cmd))
+		assert.Equal(t, "ls", cmd[0])
+		assert.Equal(t, "-la", cmd[1])
+	})
+
+	t.Run("Command without parameters with quotes", func(t *testing.T) {
+		input := "bash -c \"echo aaa > xxx\""
+		cmd := ParseCustomCommand(input)
+		assert.Equal(t, 3, len(cmd))
+		assert.Equal(t, "bash", cmd[0])
+		assert.Equal(t, "-c", cmd[1])
+		assert.Equal(t, "\"echo aaa > xxx\"", cmd[2])
+	})
+}
