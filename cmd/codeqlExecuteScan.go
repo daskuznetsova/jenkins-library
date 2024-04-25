@@ -140,9 +140,7 @@ func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telem
 	reports = append(reports, scanReports...)
 
 	if len(config.CustomCommand) > 0 {
-		log.Entry().Infof("custom command will be run: %s", config.CustomCommand)
-		cmd := strings.Split(config.CustomCommand, " ")
-		err = utils.RunExecutable(cmd[0], cmd[1:]...)
+		err = runCustomCommand(utils, config.CustomCommand)
 		if err != nil {
 			log.Entry().WithError(err).Error("failed to run command %s", config.CustomCommand)
 			return reports, err
@@ -400,6 +398,20 @@ func uploadProjectToGitHub(config *codeqlExecuteScanOptions, repoInfo *codeql.Re
 	}
 	repoInfo.CommitId = targetCommitId
 	log.Entry().Info("DB sources were successfully uploaded to target GitHub repo")
+
+	return nil
+}
+
+func runCustomCommand(utils codeqlExecuteScanUtils, commands []string) error {
+	for _, command := range commands {
+		log.Entry().Infof("custom command will be run: %s", command)
+		cmd := strings.Split(command, " ")
+		err := utils.RunExecutable(cmd[0], cmd[1:]...)
+		if err != nil {
+			log.Entry().WithError(err).Errorf("failed to run command %s", command)
+			return err
+		}
+	}
 
 	return nil
 }
