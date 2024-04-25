@@ -137,7 +137,7 @@ func ParseCustomCommand(command string) []string {
 		cmd := strings.Split(tmp, " ")
 		for i, word := range cmd {
 			if word == "\"\"" {
-				cmd[i] = `"` + matches[1] + `"`
+				cmd[i] = matches[1]
 			}
 		}
 		return cmd
