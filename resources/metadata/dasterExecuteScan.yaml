@@ -1,0 +1,145 @@
+metadata:
+  name: dasterExecuteScan
+  description: '**D**ynamic **A**pplication **S**ecurity **T**esting.'
+  longDescription: |-
+    The name DASTer is derived from **D**ynamic **A**pplication **S**ecurity **T**esting. As the name implies, the tool targets to provide black-box security testing capabilities for your solutions in an automated fashion.
+    DASTer itself ships with a [Swagger based frontend](https://daster.tools.sap/api-spec/viewer/) and a [Web UI](https://app.daster.tools.sap/ui5/) to generate tokens
+    required to record your consent and to authenticate. Please see the [documentation](https://github.wdf.sap.corp/pages/Security-Testing/doc/daster/) for
+    background information about the tool, its usage scenarios and channels to report problems.
+
+
+spec:
+  inputs:
+    secrets:
+      - name: oAuthCredentialsId
+        description: ID referencing a user/pwd credentials to fetch an oAuth token for FioriDAST service testing, please encode client_id as username and client_secret as password.
+        type: jenkins
+    resources:
+      - name: commonPipelineEnvironment
+        resourceSpec:
+          type: piperEnvironment
+      - name: buildDescriptor
+        type: stash
+      - name: tests
+        type: stash
+    params:
+      - name: clientId
+        description: client_id to fetch an oAuth token for FioriDAST service testing.
+        scope:
+          - GENERAL
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        type: string
+        secret: true
+        mandatory: true
+        resourceRef:
+          - name: oAuthCredentialsId
+            type: secret
+            param: clientId
+          - type: vaultSecret
+            default: daster
+            name: dasterVaultSecretName
+      - name: clientSecret
+        description: client_secret to fetch an oAuth token for FioriDAST service testing.
+        scope:
+          - GENERAL
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        type: string
+        secret: true
+        mandatory: true
+        resourceRef:
+          - name: oAuthCredentialsId
+            type: secret
+            param: clientSecret
+          - type: vaultSecret
+            default: daster
+            name: dasterVaultSecretName
+      - name: maxRetries
+        type: int
+        description: Number of retries to be attempted in case of HTTP connection instability.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: oAuthGrantType
+        type: string
+        description: The grant type to use for fetching the token.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: oAuthSource
+        type: string
+        description: The source used to fetch the token.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: oAuthServiceUrl
+        type: string
+        description: The URL to the XSUAA used for fetching the token.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: synchronous
+        type: bool
+        description: Whether to use the step in a synchronous or asynchronous mode.
+        longDescription: |-
+          Setting `synchronous: false` will reduce the step to only trigger the DASTer scan without polling for any results.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: scanType
+        type: string
+        description: The type of DASTer scan to trigger which actually corresponds to the API endpoints i.e. `'basicScan'`
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        possibleValues:
+          - basicScan
+          - oDataScan
+          - swaggerScan
+          - fioriDASTScan
+          - aemscan
+          - oDataFuzzer
+          - burpscan
+      - name: settings
+        type: "[]string"
+        description: The settings configuration object as required by DASTer.
+        longDescription: |-
+          The settings configuration object as required by DASTer with a tiny **deviation**: for any credentials do not provide the original parameter but a parameter named like it but having the suffix `CredentialsId` i.e. `userCredentialsCredentialsId` with a value pointing to a respective credential in the Jenkins Credentials Store.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: deleteScan
+        type: bool
+        description: Whether to finally delete the scan or not only supported for `fioriDASTScan`.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: serviceUrl
+        type: string
+        description: The URL to DASTer.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+      - name: thresholds
+        type: string
+        description: The thresholds used to fail the build.
+        longDescription: |-
+          The thresholds used to fail the build. Negative values can be used to turn the threshold off i.e. `thresholds: [ fail: [ high: -1] ] would deactivate the default to not tolerate any high findings
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
+  containers:
+    - image: ""
