@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/SAP/jenkins-library/pkg/command"
+	"github.com/SAP/jenkins-library/pkg/daster"
 	"github.com/SAP/jenkins-library/pkg/log"
 	"github.com/SAP/jenkins-library/pkg/piperutils"
 	"github.com/SAP/jenkins-library/pkg/telemetry"
@@ -50,38 +51,50 @@ func runDasterExecuteScan(config *dasterExecuteScanOptions, telemetryData *telem
 	if err != nil {
 		return err
 	}
-	//
-	//if (config.settings.userCredentialsCredentialsId) {
-	//	runScanWithUserCredentials(parameters, utils, config, body)
-	//}
-	//else if (config.settings.targetAuthCredentialsId) {
-	//	runScanWithTargetAuth(parameters, utils, config, body)
-	//} else {
-	//	runScan(parameters, utils, config, body)
-	//}
-	return nil
-}
 
-func runScanDaster(config *dasterExecuteScanOptions) {
-	daster := NewDaster()
-	scan := daster.TriggerScan()
-	if scan.scanId == nil {
-		return
+	dasterInstance := daster.NewDaster(token, config.ServiceURL)
+	scan, err := dasterInstance.TriggerScan()
+	if err != nil {
+		log.Entry().WithError(err).Error("failed to trigger scan")
+		return err
 	}
+	if scan.ScanId == "" {
+		return nil
+	}
+
 	if config.Synchronous && config.ScanType != "burpscan" {
-		//var scanResponse []T{}
+		var scanResponse *daster.ScanResponse
 		for {
-			scanResponse := daster.GetScanResponse(scan.ScanId)
+			scanResponse, err = dasterInstance.GetScanResponse(scan.ScanId)
+			if err != nil {
+				return err
+			}
 			if scanResponse.State.Terminated != nil {
 				break
 			}
 			time.Sleep(15 * time.Second)
 		}
-		scanResult := daster.GetScanResult(scanResponse)
+		scanResult, err := dasterInstance.GetScanResult(scanResponse)
+		if err != nil {
+			return err
+		}
+		violations := daster.CheckThresholdViolations(&daster.ThresholdViolations{}, scanResult)
+		if violations != nil {
+			//error "[${STEP_NAME}][ERROR] Threshold(s) ${thresholdViolations} violated by findings '${scanResult.summary}'"
+		} else if scanResponse.State.Terminated.ExitCode != 0 {
+			//error "[${STEP_NAME}][ERROR] Scan failed with code '${scanResponse?.state?.terminated?.exitCode}', reason '${scanResponse?.state?.terminated?.reason}' on container '${scanResponse?.state?.terminated?.containerID}'"
+		} else {
+			log.Entry().Infof("Result of scan is %v", scanResponse)
+		}
+		err = dasterInstance.DeleteScan(scan.ScanId)
+		if err != nil {
+			log.Entry().WithError(err).Warn("failed to delete scan")
+		}
 	}
 	if config.ScanType == "burpscan" {
 
 	}
+	return nil
 }
 
 /*

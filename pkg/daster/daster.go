@@ -9,6 +9,44 @@ import (
 )
 
 type Daster struct {
+	token string
+	url   string
+}
+
+func NewDaster(token, url string) *Daster {
+	return &Daster{
+		token: token,
+		url:   url,
+	}
+}
+
+type Scan struct {
+	ScanId string
+}
+
+type ScanResponse struct {
+	State *State
+}
+
+type State struct {
+	Terminated *TerminatedState
+}
+
+type TerminatedState struct {
+	ExitCode    int
+	Reason      string
+	ContainerId string
+}
+
+type ScanResult struct {
+}
+
+type ThresholdViolations struct {
+	High   int
+	Medium int
+	Low    int
+	Info   int
+	All    int
 }
 
 /*
@@ -21,12 +59,24 @@ type Daster struct {
 	        return [:]
 	    }
 */
-func (d *Daster) TriggerScan() {
-
+func (d *Daster) TriggerScan() (*Scan, error) {
+	return &Scan{}, nil
 }
 
-func (d *Daster) GetScanResponse(scanId int) {
+func (d *Daster) GetScanResponse(scanId string) (*ScanResponse, error) {
+	return &ScanResponse{}, nil
+}
 
+func (d *Daster) GetScanResult(scan *ScanResponse) (*ScanResult, error) {
+	return &ScanResult{}, nil
+}
+
+func (d *Daster) DeleteScan(scanId string) error {
+	return nil
+}
+
+func CheckThresholdViolations(violations *ThresholdViolations, scanResult *ScanResult) *ThresholdViolations {
+	return nil
 }
 
 /*
@@ -40,32 +90,32 @@ func transformConfiguration() {
 }
 
 /*
-private def callApi(endpoint, requestBody = null, mode = 'POST', contentType = 'APPLICATION_JSON', parseJsonResult = true){
-        def params = [
-            url                    : "${this.config.serviceUrl}${endpoint}",
-            httpMode               : mode,
-            acceptType             : 'APPLICATION_JSON',
-            contentType            : contentType,
-            quiet                  : !this.config.verbose,
-            consoleLogResponseBody : this.config.verbose,
-            validResponseCodes     : '100:499'
-        ]
-        if (requestBody) {
-            def requestBodyString = utils.jsonToString(requestBody)
-            if (this.config.verbose) this.script.echo "Request with body ${requestBodyString} being sent."
-            params.put('requestBody', requestBodyString)
-        }
-        def response = [status: 0]
-        def attempts = 0
-        while ((!response.status || RETRY_CODES.contains(response.status)) && attempts < this.config.maxRetries) {
-            response = httpResource(params)
-            attempts++
-        }
-        if (parseJsonResult)
-            return this.utils.parseJsonSerializable(response.content)
-        else
-            return response.content
-    }
+	private def callApi(endpoint, requestBody = null, mode = 'POST', contentType = 'APPLICATION_JSON', parseJsonResult = true){
+	        def params = [
+	            url                    : "${this.config.serviceUrl}${endpoint}",
+	            httpMode               : mode,
+	            acceptType             : 'APPLICATION_JSON',
+	            contentType            : contentType,
+	            quiet                  : !this.config.verbose,
+	            consoleLogResponseBody : this.config.verbose,
+	            validResponseCodes     : '100:499'
+	        ]
+	        if (requestBody) {
+	            def requestBodyString = utils.jsonToString(requestBody)
+	            if (this.config.verbose) this.script.echo "Request with body ${requestBodyString} being sent."
+	            params.put('requestBody', requestBodyString)
+	        }
+	        def response = [status: 0]
+	        def attempts = 0
+	        while ((!response.status || RETRY_CODES.contains(response.status)) && attempts < this.config.maxRetries) {
+	            response = httpResource(params)
+	            attempts++
+	        }
+	        if (parseJsonResult)
+	            return this.utils.parseJsonSerializable(response.content)
+	        else
+	            return response.content
+	    }
 */
 func callApi(url string, requestBody []byte, verbose bool) {
 	var jsonStr = []byte("{}")

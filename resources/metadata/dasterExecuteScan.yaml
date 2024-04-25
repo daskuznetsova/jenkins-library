@@ -14,6 +14,15 @@ spec:
       - name: oAuthCredentialsId
         description: ID referencing a user/pwd credentials to fetch an oAuth token for FioriDAST service testing, please encode client_id as username and client_secret as password.
         type: jenkins
+      - name: dasterTokenCredentialsId
+        description: daster token
+        type: jenkins
+      - name: userCredentialsId
+        description: token
+        type: jenkins
+      - name: targetAuthCredentialsId
+        description: user/password
+        type: jenkins
     resources:
       - name: commonPipelineEnvironment
         resourceSpec:
@@ -57,6 +66,79 @@ spec:
           - type: vaultSecret
             default: daster
             name: dasterVaultSecretName
+      - name: userCredentials
+        description: user token
+        scope:
+          - GENERAL
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        type: string
+        secret: true
+        mandatory: true
+        resourceRef:
+          - name: userCredentialsId
+            type: secret
+          - type: vaultSecret
+            default: userCredentialsId
+            name: dasterVaultSecretName
+      - name: dasterToken
+        description: daster token
+        scope:
+          - GENERAL
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        type: string
+        secret: true
+        mandatory: true
+        resourceRef:
+          - name: dasterTokenCredentialsId
+            type: secret
+          - type: vaultSecret
+            default: daster
+            name: dasterVaultSecretName
+      - name: user
+        description: target user.
+        scope:
+          - GENERAL
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        type: string
+        secret: true
+        mandatory: true
+        resourceRef:
+          - name: targetAuthCredentialsId
+            type: secret
+            param: user
+          - type: vaultSecret
+            default: daster
+            name: dasterVaultSecretName
+      - name: password
+        description: target password.
+        scope:
+          - GENERAL
+          - PARAMETERS
+          - STAGES
+          - STEPS
+        type: string
+        secret: true
+        mandatory: true
+        resourceRef:
+          - name: targetAuthCredentialsId
+            type: secret
+            param: password
+          - type: vaultSecret
+            default: daster
+            name: dasterVaultSecretName
+      - name: targetUrl
+        type: string
+        description: target url.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
       - name: maxRetries
         type: int
         description: Number of retries to be attempted in case of HTTP connection instability.
@@ -110,10 +192,13 @@ spec:
           - oDataFuzzer
           - burpscan
       - name: settings
-        type: "[]string"
+        type: "map[string]interface{}"
         description: The settings configuration object as required by DASTer.
         longDescription: |-
-          The settings configuration object as required by DASTer with a tiny **deviation**: for any credentials do not provide the original parameter but a parameter named like it but having the suffix `CredentialsId` i.e. `userCredentialsCredentialsId` with a value pointing to a respective credential in the Jenkins Credentials Store.
+          ```yaml
+             targetUrl: <url>
+             recipients: <email1>,<email2>
+             ```
         scope:
           - PARAMETERS
           - STAGES

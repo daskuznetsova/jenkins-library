@@ -16,18 +16,23 @@ import (
 )
 
 type dasterExecuteScanOptions struct {
-	ClientID        string   `json:"clientId,omitempty"`
-	ClientSecret    string   `json:"clientSecret,omitempty"`
-	MaxRetries      int      `json:"maxRetries,omitempty"`
-	OAuthGrantType  string   `json:"oAuthGrantType,omitempty"`
-	OAuthSource     string   `json:"oAuthSource,omitempty"`
-	OAuthServiceURL string   `json:"oAuthServiceUrl,omitempty"`
-	Synchronous     bool     `json:"synchronous,omitempty"`
-	ScanType        string   `json:"scanType,omitempty" validate:"possible-values=basicScan oDataScan swaggerScan fioriDASTScan aemscan oDataFuzzer burpscan"`
-	Settings        []string `json:"settings,omitempty"`
-	DeleteScan      bool     `json:"deleteScan,omitempty"`
-	ServiceURL      string   `json:"serviceUrl,omitempty"`
-	Thresholds      string   `json:"thresholds,omitempty"`
+	ClientID        string                 `json:"clientId,omitempty"`
+	ClientSecret    string                 `json:"clientSecret,omitempty"`
+	UserCredentials string                 `json:"userCredentials,omitempty"`
+	DasterToken     string                 `json:"dasterToken,omitempty"`
+	User            string                 `json:"user,omitempty"`
+	Password        string                 `json:"password,omitempty"`
+	TargetURL       string                 `json:"targetUrl,omitempty"`
+	MaxRetries      int                    `json:"maxRetries,omitempty"`
+	OAuthGrantType  string                 `json:"oAuthGrantType,omitempty"`
+	OAuthSource     string                 `json:"oAuthSource,omitempty"`
+	OAuthServiceURL string                 `json:"oAuthServiceUrl,omitempty"`
+	Synchronous     bool                   `json:"synchronous,omitempty"`
+	ScanType        string                 `json:"scanType,omitempty" validate:"possible-values=basicScan oDataScan swaggerScan fioriDASTScan aemscan oDataFuzzer burpscan"`
+	Settings        map[string]interface{} `json:"settings,omitempty"`
+	DeleteScan      bool                   `json:"deleteScan,omitempty"`
+	ServiceURL      string                 `json:"serviceUrl,omitempty"`
+	Thresholds      string                 `json:"thresholds,omitempty"`
 }
 
 // DasterExecuteScanCommand **D**ynamic **A**pplication **S**ecurity **T**esting.
@@ -66,6 +71,10 @@ background information about the tool, its usage scenarios and channels to repor
 			}
 			log.RegisterSecret(stepConfig.ClientID)
 			log.RegisterSecret(stepConfig.ClientSecret)
+			log.RegisterSecret(stepConfig.UserCredentials)
+			log.RegisterSecret(stepConfig.DasterToken)
+			log.RegisterSecret(stepConfig.User)
+			log.RegisterSecret(stepConfig.Password)
 
 			if len(GeneralConfig.HookConfig.SentryConfig.Dsn) > 0 {
 				sentryHook := log.NewSentryHook(GeneralConfig.HookConfig.SentryConfig.Dsn, GeneralConfig.CorrelationID)
@@ -136,19 +145,28 @@ background information about the tool, its usage scenarios and channels to repor
 func addDasterExecuteScanFlags(cmd *cobra.Command, stepConfig *dasterExecuteScanOptions) {
 	cmd.Flags().StringVar(&stepConfig.ClientID, "clientId", os.Getenv("PIPER_clientId"), "client_id to fetch an oAuth token for FioriDAST service testing.")
 	cmd.Flags().StringVar(&stepConfig.ClientSecret, "clientSecret", os.Getenv("PIPER_clientSecret"), "client_secret to fetch an oAuth token for FioriDAST service testing.")
+	cmd.Flags().StringVar(&stepConfig.UserCredentials, "userCredentials", os.Getenv("PIPER_userCredentials"), "user token")
+	cmd.Flags().StringVar(&stepConfig.DasterToken, "dasterToken", os.Getenv("PIPER_dasterToken"), "daster token")
+	cmd.Flags().StringVar(&stepConfig.User, "user", os.Getenv("PIPER_user"), "target user.")
+	cmd.Flags().StringVar(&stepConfig.Password, "password", os.Getenv("PIPER_password"), "target password.")
+	cmd.Flags().StringVar(&stepConfig.TargetURL, "targetUrl", os.Getenv("PIPER_targetUrl"), "target url.")
 	cmd.Flags().IntVar(&stepConfig.MaxRetries, "maxRetries", 0, "Number of retries to be attempted in case of HTTP connection instability.")
 	cmd.Flags().StringVar(&stepConfig.OAuthGrantType, "oAuthGrantType", os.Getenv("PIPER_oAuthGrantType"), "The grant type to use for fetching the token.")
 	cmd.Flags().StringVar(&stepConfig.OAuthSource, "oAuthSource", os.Getenv("PIPER_oAuthSource"), "The source used to fetch the token.")
 	cmd.Flags().StringVar(&stepConfig.OAuthServiceURL, "oAuthServiceUrl", os.Getenv("PIPER_oAuthServiceUrl"), "The URL to the XSUAA used for fetching the token.")
 	cmd.Flags().BoolVar(&stepConfig.Synchronous, "synchronous", false, "Whether to use the step in a synchronous or asynchronous mode.")
 	cmd.Flags().StringVar(&stepConfig.ScanType, "scanType", os.Getenv("PIPER_scanType"), "The type of DASTer scan to trigger which actually corresponds to the API endpoints i.e. `'basicScan'`")
-	cmd.Flags().StringSliceVar(&stepConfig.Settings, "settings", []string{}, "The settings configuration object as required by DASTer.")
+
 	cmd.Flags().BoolVar(&stepConfig.DeleteScan, "deleteScan", false, "Whether to finally delete the scan or not only supported for `fioriDASTScan`.")
 	cmd.Flags().StringVar(&stepConfig.ServiceURL, "serviceUrl", os.Getenv("PIPER_serviceUrl"), "The URL to DASTer.")
 	cmd.Flags().StringVar(&stepConfig.Thresholds, "thresholds", os.Getenv("PIPER_thresholds"), "The thresholds used to fail the build.")
 
 	cmd.MarkFlagRequired("clientId")
 	cmd.MarkFlagRequired("clientSecret")
+	cmd.MarkFlagRequired("userCredentials")
+	cmd.MarkFlagRequired("dasterToken")
+	cmd.MarkFlagRequired("user")
+	cmd.MarkFlagRequired("password")
 }
 
 // retrieve step metadata
@@ -163,6 +181,9 @@ func dasterExecuteScanMetadata() config.StepData {
 			Inputs: config.StepInputs{
 				Secrets: []config.StepSecrets{
 					{Name: "oAuthCredentialsId", Description: "ID referencing a user/pwd credentials to fetch an oAuth token for FioriDAST service testing, please encode client_id as username and client_secret as password.", Type: "jenkins"},
+					{Name: "dasterTokenCredentialsId", Description: "daster token", Type: "jenkins"},
+					{Name: "userCredentialsId", Description: "token", Type: "jenkins"},
+					{Name: "targetAuthCredentialsId", Description: "user/password", Type: "jenkins"},
 				},
 				Resources: []config.StepResources{
 					{Name: "commonPipelineEnvironment"},
@@ -211,6 +232,97 @@ func dasterExecuteScanMetadata() config.StepData {
 						Mandatory: true,
 						Aliases:   []config.Alias{},
 						Default:   os.Getenv("PIPER_clientSecret"),
+					},
+					{
+						Name: "userCredentials",
+						ResourceRef: []config.ResourceReference{
+							{
+								Name: "userCredentialsId",
+								Type: "secret",
+							},
+
+							{
+								Name:    "dasterVaultSecretName",
+								Type:    "vaultSecret",
+								Default: "userCredentialsId",
+							},
+						},
+						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Type:      "string",
+						Mandatory: true,
+						Aliases:   []config.Alias{},
+						Default:   os.Getenv("PIPER_userCredentials"),
+					},
+					{
+						Name: "dasterToken",
+						ResourceRef: []config.ResourceReference{
+							{
+								Name: "dasterTokenCredentialsId",
+								Type: "secret",
+							},
+
+							{
+								Name:    "dasterVaultSecretName",
+								Type:    "vaultSecret",
+								Default: "daster",
+							},
+						},
+						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Type:      "string",
+						Mandatory: true,
+						Aliases:   []config.Alias{},
+						Default:   os.Getenv("PIPER_dasterToken"),
+					},
+					{
+						Name: "user",
+						ResourceRef: []config.ResourceReference{
+							{
+								Name:  "targetAuthCredentialsId",
+								Param: "user",
+								Type:  "secret",
+							},
+
+							{
+								Name:    "dasterVaultSecretName",
+								Type:    "vaultSecret",
+								Default: "daster",
+							},
+						},
+						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Type:      "string",
+						Mandatory: true,
+						Aliases:   []config.Alias{},
+						Default:   os.Getenv("PIPER_user"),
+					},
+					{
+						Name: "password",
+						ResourceRef: []config.ResourceReference{
+							{
+								Name:  "targetAuthCredentialsId",
+								Param: "password",
+								Type:  "secret",
+							},
+
+							{
+								Name:    "dasterVaultSecretName",
+								Type:    "vaultSecret",
+								Default: "daster",
+							},
+						},
+						Scope:     []string{"GENERAL", "PARAMETERS", "STAGES", "STEPS"},
+						Type:      "string",
+						Mandatory: true,
+						Aliases:   []config.Alias{},
+						Default:   os.Getenv("PIPER_password"),
+					},
+					{
+						Name:        "targetUrl",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"PARAMETERS", "STAGES", "STEPS"},
+						Type:        "string",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     os.Getenv("PIPER_targetUrl"),
 					},
 					{
 						Name:        "maxRetries",
@@ -270,10 +382,9 @@ func dasterExecuteScanMetadata() config.StepData {
 						Name:        "settings",
 						ResourceRef: []config.ResourceReference{},
 						Scope:       []string{"PARAMETERS", "STAGES", "STEPS"},
-						Type:        "[]string",
+						Type:        "map[string]interface{}",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     []string{},
 					},
 					{
 						Name:        "deleteScan",
