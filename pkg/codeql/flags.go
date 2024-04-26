@@ -1,7 +1,6 @@
 package codeql
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/SAP/jenkins-library/pkg/log"
@@ -126,22 +125,4 @@ func AppendThreadsAndRam(cmd []string, threads, ram string, customFlags map[stri
 		cmd = append(cmd, "--ram="+ram)
 	}
 	return cmd
-}
-
-func ParseCustomCommand(command string) []string {
-	// cut substring inside quotes to have it as a single parameter
-	re := regexp.MustCompile(`"([^"]*)"`)
-	matches := re.FindStringSubmatch(command)
-	if len(matches) > 0 {
-		tmp := strings.ReplaceAll(command, matches[1], "")
-		cmd := strings.Split(tmp, " ")
-		for i, word := range cmd {
-			if word == "\"\"" {
-				cmd[i] = matches[1]
-			}
-		}
-		return cmd
-	}
-
-	return strings.Split(command, " ")
 }
