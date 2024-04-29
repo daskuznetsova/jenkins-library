@@ -226,5 +226,12 @@ spec:
           - PARAMETERS
           - STAGES
           - STEPS
+      - name: verbose
+        type: bool
+        description: Verbose
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
   containers:
     - image: ""

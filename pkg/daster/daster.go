@@ -2,21 +2,26 @@ package daster
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/SAP/jenkins-library/pkg/log"
 )
 
 type Daster struct {
-	token string
-	url   string
+	token    string
+	url      string
+	scanType string
+	verbose  bool
 }
 
-func NewDaster(token, url string) *Daster {
+func NewDaster(token, url, scanType string, verbose bool) *Daster {
 	return &Daster{
-		token: token,
-		url:   url,
+		token:    token,
+		url:      url,
+		scanType: scanType,
+		verbose:  verbose,
 	}
 }
 
@@ -49,25 +54,54 @@ type ThresholdViolations struct {
 	All    int
 }
 
-/*
-	def triggerScan() {
-	        if (this.TRIGGER_ENDPOINTS.contains(this.config.scanType)) {
-	            def body = transformConfiguration()
-	            def parsedResponse = callApi("${this.config.scanType}", body)
-	            return parsedResponse
-	        }
-	        return [:]
-	    }
-*/
-func (d *Daster) TriggerScan() (*Scan, error) {
-	return &Scan{}, nil
+func (d *Daster) TriggerScan(settings map[string]interface{}) (*Scan, error) {
+	requestBody, err := json.Marshal(settings)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := callApi(d.url+"/"+d.scanType, requestBody, http.MethodPost, d.verbose)
+	if err != nil {
+		return nil, err
+	}
+
+	var scan *Scan
+	err = json.Unmarshal(resp, scan)
+	return scan, err
 }
 
 func (d *Daster) GetScanResponse(scanId string) (*ScanResponse, error) {
+	switch d.scanType {
+	case "fioriDASTScan", "aemscan", "oDataFuzzer", "burpscan":
+		resp, err := callApi(d.url+"/"+d.scanType+"/"+scanId, nil, http.MethodGet, d.verbose)
+		if err != nil {
+			return nil, err
+		}
+		var scanResponse *ScanResponse
+		err = json.Unmarshal(resp, scanResponse)
+		return scanResponse, err
+	}
 	return &ScanResponse{}, nil
 }
 
+/*
+def result = [:]
+
+	switch (this.config.scanType) {
+	    case 'fioriDASTScan':
+	        result.summary = scanResponse?.riskSummary
+	        result. details = scanResponse?.riskReport
+	        break
+	    case  'aemscan':
+	        result.details = scanResponse?.log
+	        break
+	}
+	return result
+*/
 func (d *Daster) GetScanResult(scan *ScanResponse) (*ScanResult, error) {
+	switch d.scanType {
+	case "fioriDASTScan":
+
+	}
 	return &ScanResult{}, nil
 }
 
@@ -79,81 +113,48 @@ func CheckThresholdViolations(violations *ThresholdViolations, scanResult *ScanR
 	return nil
 }
 
-/*
-	private def transformConfiguration() {
-	        def requestBody = [:].plus(config.settings)
-	        return requestBody
-	    }
-*/
-func transformConfiguration() {
-
-}
-
-/*
-	private def callApi(endpoint, requestBody = null, mode = 'POST', contentType = 'APPLICATION_JSON', parseJsonResult = true){
-	        def params = [
-	            url                    : "${this.config.serviceUrl}${endpoint}",
-	            httpMode               : mode,
-	            acceptType             : 'APPLICATION_JSON',
-	            contentType            : contentType,
-	            quiet                  : !this.config.verbose,
-	            consoleLogResponseBody : this.config.verbose,
-	            validResponseCodes     : '100:499'
-	        ]
-	        if (requestBody) {
-	            def requestBodyString = utils.jsonToString(requestBody)
-	            if (this.config.verbose) this.script.echo "Request with body ${requestBodyString} being sent."
-	            params.put('requestBody', requestBodyString)
-	        }
-	        def response = [status: 0]
-	        def attempts = 0
-	        while ((!response.status || RETRY_CODES.contains(response.status)) && attempts < this.config.maxRetries) {
-	            response = httpResource(params)
-	            attempts++
-	        }
-	        if (parseJsonResult)
-	            return this.utils.parseJsonSerializable(response.content)
-	        else
-	            return response.content
-	    }
-*/
-func callApi(url string, requestBody []byte, verbose bool) {
+func callApi(url string, requestBody []byte, mode string, verbose bool) ([]byte, error) {
 	var jsonStr = []byte("{}")
 	if requestBody != nil {
-		requestBodyString := utils(jsonStr)
 		if verbose {
-			fmt.Printf("Request with body %s being sent.\n", requestBodyString)
+			log.Entry().Infof("request with body %s being sent.", requestBody)
 		}
-		jsonStr = []byte(requestBodyString)
+		jsonStr = requestBody
 	}
 	response, err := httpResource(url, mode, jsonStr)
 	if err != nil {
 		return nil, err
 	}
-	if parseJsonResult {
-		parsedResponse, err := parser(string(response))
-		if err != nil {
-			return nil, err
-		}
-		return parsedResponse, nil
-	} else {
-		var responseContent map[string]interface{}
-		json.Unmarshal(response, &responseContent)
-		return responseContent, nil
-	}
+	return response, nil
 }
 
 func httpResource(url string, mode string, jsonStr []byte) ([]byte, error) {
 	client := &http.Client{}
-	req, _ := http.NewRequest(mode, url, strings.NewReader(string(jsonStr)))
-
-	resp, err := client.Do(req)
+	req, err := http.NewRequest(mode, url, strings.NewReader(string(jsonStr)))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := performRequest(client, req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	responseBytes, _ := io.ReadAll(resp.Body)
+	return readResponseBody(resp)
+}
 
+func performRequest(client *http.Client, req *http.Request) (*http.Response, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func readResponseBody(resp *http.Response) ([]byte, error) {
+	responseBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	return responseBytes, nil
 }

@@ -52,8 +52,8 @@ func runDasterExecuteScan(config *dasterExecuteScanOptions, telemetryData *telem
 		return err
 	}
 
-	dasterInstance := daster.NewDaster(token, config.ServiceURL)
-	scan, err := dasterInstance.TriggerScan()
+	dasterInstance := daster.NewDaster(token, config.ServiceURL, config.ScanType, config.Verbose)
+	scan, err := dasterInstance.TriggerScan(config.Settings)
 	if err != nil {
 		log.Entry().WithError(err).Error("failed to trigger scan")
 		return err

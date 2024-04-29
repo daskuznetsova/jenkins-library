@@ -33,6 +33,7 @@ type dasterExecuteScanOptions struct {
 	DeleteScan      bool                   `json:"deleteScan,omitempty"`
 	ServiceURL      string                 `json:"serviceUrl,omitempty"`
 	Thresholds      string                 `json:"thresholds,omitempty"`
+	Verbose         bool                   `json:"verbose,omitempty"`
 }
 
 // DasterExecuteScanCommand **D**ynamic **A**pplication **S**ecurity **T**esting.
@@ -160,6 +161,7 @@ func addDasterExecuteScanFlags(cmd *cobra.Command, stepConfig *dasterExecuteScan
 	cmd.Flags().BoolVar(&stepConfig.DeleteScan, "deleteScan", false, "Whether to finally delete the scan or not only supported for `fioriDASTScan`.")
 	cmd.Flags().StringVar(&stepConfig.ServiceURL, "serviceUrl", os.Getenv("PIPER_serviceUrl"), "The URL to DASTer.")
 	cmd.Flags().StringVar(&stepConfig.Thresholds, "thresholds", os.Getenv("PIPER_thresholds"), "The thresholds used to fail the build.")
+	cmd.Flags().BoolVar(&stepConfig.Verbose, "verbose", false, "Verbose")
 
 	cmd.MarkFlagRequired("clientId")
 	cmd.MarkFlagRequired("clientSecret")
@@ -412,6 +414,15 @@ func dasterExecuteScanMetadata() config.StepData {
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
 						Default:     os.Getenv("PIPER_thresholds"),
+					},
+					{
+						Name:        "verbose",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"PARAMETERS", "STAGES", "STEPS"},
+						Type:        "bool",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     false,
 					},
 				},
 			},
