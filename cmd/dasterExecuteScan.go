@@ -47,114 +47,62 @@ func dasterExecuteScan(config dasterExecuteScanOptions, telemetryData *telemetry
 }
 
 func runDasterExecuteScan(config *dasterExecuteScanOptions, telemetryData *telemetry.CustomData, utils dasterExecuteScanUtils) error {
+	var dasterInstance daster.Daster
+	switch config.ScanType {
+	case daster.FioriDASTScanType:
+		dasterInstance = daster.NewFioriDASTScan(config.ServiceURL, config.Verbose, config.MaxRetries)
+	case daster.ODataFuzzerType:
+		dasterInstance = daster.NewODataFuzzer(config.ServiceURL, config.Verbose, config.MaxRetries)
+	default:
+		log.Entry().Errorf("scan type %s is currently unavailable", config.ScanType)
+	}
+
 	token, err := fetchOAuthToken(config)
 	if err != nil {
 		return err
 	}
 
-	dasterInstance := daster.NewDaster(token, config.ServiceURL, config.ScanType, config.Verbose)
-	scan, err := dasterInstance.TriggerScan(config.Settings)
+	config.Settings["dasterToken"] = token
+	if config.UserCredentials != "" {
+		config.Settings["userCredentials"] = config.UserCredentials
+	}
+	scanId, err := dasterInstance.TriggerScan(config.Settings)
 	if err != nil {
 		log.Entry().WithError(err).Error("failed to trigger scan")
 		return err
 	}
-	if scan.ScanId == "" {
+	if scanId == "" {
 		return nil
 	}
 
-	if config.Synchronous && config.ScanType != "burpscan" {
-		var scanResponse *daster.ScanResponse
-		for {
-			scanResponse, err = dasterInstance.GetScanResponse(scan.ScanId)
-			if err != nil {
-				return err
-			}
-			if scanResponse.State.Terminated != nil {
-				break
-			}
-			time.Sleep(15 * time.Second)
-		}
-		scanResult, err := dasterInstance.GetScanResult(scanResponse)
+	if !config.Synchronous {
+		return nil
+	}
+
+	var scan *daster.Scan
+	for {
+		scan, err = dasterInstance.GetScan(scanId)
 		if err != nil {
+			log.Entry().WithError(err).Error("failed to get scan")
 			return err
 		}
-		violations := daster.CheckThresholdViolations(&daster.ThresholdViolations{}, scanResult)
-		if violations != nil {
-			//error "[${STEP_NAME}][ERROR] Threshold(s) ${thresholdViolations} violated by findings '${scanResult.summary}'"
-		} else if scanResponse.State.Terminated.ExitCode != 0 {
-			//error "[${STEP_NAME}][ERROR] Scan failed with code '${scanResponse?.state?.terminated?.exitCode}', reason '${scanResponse?.state?.terminated?.reason}' on container '${scanResponse?.state?.terminated?.containerID}'"
-		} else {
-			log.Entry().Infof("Result of scan is %v", scanResponse)
+		if scan.State.Terminated {
+			break
 		}
-		err = dasterInstance.DeleteScan(scan.ScanId)
+		time.Sleep(15 * time.Second)
+	}
+
+	// TODO: CheckThresholdViolations
+
+	if config.DeleteScan {
+		err = dasterInstance.DeleteScan(scanId)
 		if err != nil {
 			log.Entry().WithError(err).Warn("failed to delete scan")
 		}
 	}
-	if config.ScanType == "burpscan" {
 
-	}
 	return nil
 }
-
-/*
-def runScan(parameters, utils, config, body) {
-    withCredentials([string(
-        credentialsId: config.settings.dasterTokenCredentialsId,
-        variable: 'token',
-    )]) {
-        def extendedConfig = [:].plus(config)
-        extendedConfig.settings.remove('dasterTokenCredentialsId')
-        extendedConfig.settings.dasterToken = token
-
-        def daster = parameters.dasterStub ?: new Daster(this, utils, extendedConfig)
-        def scan = daster.triggerScan()
-        echo "[${STEP_NAME}][INFO] Triggered scan of type ${config.scanType}${scan.message ? ' and received message: \'' + scan.message  + '\'' : ''}: ${scan.url ?: scan.scanId + ' and waiting for it to complete'}"
-
-	if (scan?.scanId) {
-            if(config.synchronous && config.scanType != 'burpscan') {
-                try {
-                    def scanResponse = [:]
-                    while (scanResponse?.state?.terminated == null) {
-                        scanResponse = daster.getScanResponse(scan?.scanId)
-                        sleep(15)
-                    }
-                    def scanResult = daster.getScanResult(scanResponse)
-                    def thresholdViolations = checkThresholdViolations(config, scanResult)
-                    if (thresholdViolations) {
-                        error "[${STEP_NAME}][ERROR] Threshold(s) ${thresholdViolations} violated by findings '${scanResult.summary}'"
-                    } else if (scanResponse?.state?.terminated?.exitCode) {
-                        error "[${STEP_NAME}][ERROR] Scan failed with code '${scanResponse?.state?.terminated?.exitCode}', reason '${scanResponse?.state?.terminated?.reason}' on container '${scanResponse?.state?.terminated?.containerID}'"
-                    } else {
-                        echo "Result of scan is ${scanResponse}"
-                    }
-                } finally {
-                    if (config.deleteScan)
-                        daster.deleteScan(scan?.scanId)
-                }
-            } else if (config.scanType == 'burpscan') {
-                try {
-                    withEnv(["BURP_PROXY=${scan.proxyURL}".toString()]) {
-                        body()
-                    }
-                    def scanResponse = daster.getScanResponse(scan.scanId)
-                    def scanResult = daster.getScanResult(scanResponse)
-                    def thresholdViolations = checkThresholdViolations(config, scanResult)
-                    if (thresholdViolations) {
-                        error "[${STEP_NAME}][ERROR] Threshold(s) ${thresholdViolations} violated by findings '${scanResult.summary}'"
-                    } else if (scanResponse?.state?.terminated?.exitCode) {
-                        error "[${STEP_NAME}][ERROR] Scan failed with code '${scanResponse?.state?.terminated?.exitCode}', reason '${scanResponse?.state?.terminated?.reason}' on container '${scanResponse?.state?.terminated?.containerID}'"
-                    } else {
-                        echo "Result of scan is ${scanResponse}"
-                    }
-                } finally {
-                    daster.stopBurpScan(scan.scanId)
-                }
-            }
-        }
-    }
-}
-*/
 
 func fetchOAuthToken(config *dasterExecuteScanOptions) (string, error) {
 	resp, err := http.DefaultClient.PostForm(config.OAuthServiceURL,

@@ -1,160 +1,101 @@
 package daster
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"time"
 
 	"github.com/SAP/jenkins-library/pkg/log"
 )
 
-type Daster struct {
-	token    string
-	url      string
-	scanType string
-	verbose  bool
-}
+var RetryCodes = []int{100, 101, 102, 103, 404, 408, 425,
+	/* not really common but a DASTer specific issue*/ 500, 503, 504}
 
-func NewDaster(token, url, scanType string, verbose bool) *Daster {
-	return &Daster{
-		token:    token,
-		url:      url,
-		scanType: scanType,
-		verbose:  verbose,
-	}
+type Daster interface {
+	TriggerScan(request map[string]interface{}) (string, error)
+	GetScan(scanId string) (*Scan, error)
+	DeleteScan(scanId string) error
 }
 
 type Scan struct {
-	ScanId string
+	Results string
+	State   *ScanState
+	Summary interface{}
 }
 
-type ScanResponse struct {
-	State *State
+type ScanState struct {
+	Terminated bool
 }
 
-type State struct {
-	Terminated *TerminatedState
+type ErrorResponse struct {
+	Message string `json:"message"`
 }
 
-type TerminatedState struct {
-	ExitCode    int
-	Reason      string
-	ContainerId string
-}
-
-type ScanResult struct {
-}
-
-type ThresholdViolations struct {
-	High   int
-	Medium int
-	Low    int
-	Info   int
-	All    int
-}
-
-func (d *Daster) TriggerScan(settings map[string]interface{}) (*Scan, error) {
-	requestBody, err := json.Marshal(settings)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := callApi(d.url+"/"+d.scanType, requestBody, http.MethodPost, d.verbose)
-	if err != nil {
-		return nil, err
-	}
-
-	var scan *Scan
-	err = json.Unmarshal(resp, scan)
-	return scan, err
-}
-
-func (d *Daster) GetScanResponse(scanId string) (*ScanResponse, error) {
-	switch d.scanType {
-	case "fioriDASTScan", "aemscan", "oDataFuzzer", "burpscan":
-		resp, err := callApi(d.url+"/"+d.scanType+"/"+scanId, nil, http.MethodGet, d.verbose)
+func callAPI(url, mode string, requestBody interface{}, verbose bool, maxRetries int) ([]byte, error) {
+	var requestBodyString []byte
+	var err error
+	if requestBody != nil {
+		requestBodyString, err = json.Marshal(requestBody)
 		if err != nil {
 			return nil, err
 		}
-		var scanResponse *ScanResponse
-		err = json.Unmarshal(resp, scanResponse)
-		return scanResponse, err
-	}
-	return &ScanResponse{}, nil
-}
-
-/*
-def result = [:]
-
-	switch (this.config.scanType) {
-	    case 'fioriDASTScan':
-	        result.summary = scanResponse?.riskSummary
-	        result. details = scanResponse?.riskReport
-	        break
-	    case  'aemscan':
-	        result.details = scanResponse?.log
-	        break
-	}
-	return result
-*/
-func (d *Daster) GetScanResult(scan *ScanResponse) (*ScanResult, error) {
-	switch d.scanType {
-	case "fioriDASTScan":
-
-	}
-	return &ScanResult{}, nil
-}
-
-func (d *Daster) DeleteScan(scanId string) error {
-	return nil
-}
-
-func CheckThresholdViolations(violations *ThresholdViolations, scanResult *ScanResult) *ThresholdViolations {
-	return nil
-}
-
-func callApi(url string, requestBody []byte, mode string, verbose bool) ([]byte, error) {
-	var jsonStr = []byte("{}")
-	if requestBody != nil {
 		if verbose {
-			log.Entry().Infof("request with body %s being sent.", requestBody)
+			log.Entry().Infof("request with body %s being sent.", string(requestBodyString))
 		}
-		jsonStr = requestBody
 	}
-	response, err := httpResource(url, mode, jsonStr)
+
+	response := &http.Response{StatusCode: 0}
+	attempts := 0
+
+	for (response.StatusCode == 0 || IsInRetryCodes(response.StatusCode)) && attempts < maxRetries {
+		response, err = SendHTTPRequest(url, mode, requestBodyString)
+		if err != nil {
+			return nil, err
+		}
+		attempts += 1
+		time.Sleep(1 * time.Second)
+	}
+
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	return response, nil
+
+	if response.StatusCode != 200 {
+		errResponse := ErrorResponse{}
+		err = json.Unmarshal(body, &errResponse)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("API request failed with status code %d: %s", response.StatusCode, errResponse.Message)
+	}
+
+	return body, nil
 }
 
-func httpResource(url string, mode string, jsonStr []byte) ([]byte, error) {
+func SendHTTPRequest(url, mode string, requestBody []byte) (*http.Response, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest(mode, url, strings.NewReader(string(jsonStr)))
+	req, err := http.NewRequest(mode, url, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, err
 	}
-	resp, err := performRequest(client, req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
-	return readResponseBody(resp)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	return client.Do(req)
 }
 
-func performRequest(client *http.Client, req *http.Request) (*http.Response, error) {
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
+func IsInRetryCodes(statusCode int) bool {
+	for _, code := range RetryCodes {
+		if statusCode == code {
+			return true
+		}
 	}
-	return resp, nil
-}
-
-func readResponseBody(resp *http.Response) ([]byte, error) {
-	responseBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return responseBytes, nil
+	return false
 }

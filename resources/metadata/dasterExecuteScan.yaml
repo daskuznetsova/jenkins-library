@@ -184,13 +184,13 @@ spec:
           - STAGES
           - STEPS
         possibleValues:
-          - basicScan
-          - oDataScan
-          - swaggerScan
+#          - basicScan
+#          - oDataScan
+#          - swaggerScan
           - fioriDASTScan
-          - aemscan
+#          - aemscan
           - oDataFuzzer
-          - burpscan
+#          - burpscan
       - name: settings
         type: "map[string]interface{}"
         description: The settings configuration object as required by DASTer.
@@ -198,7 +198,7 @@ spec:
           ```yaml
              targetUrl: <url>
              recipients: <email1>,<email2>
-             ```
+          ```
         scope:
           - PARAMETERS
           - STAGES

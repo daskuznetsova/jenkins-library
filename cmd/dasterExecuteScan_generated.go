@@ -28,7 +28,7 @@ type dasterExecuteScanOptions struct {
 	OAuthSource     string                 `json:"oAuthSource,omitempty"`
 	OAuthServiceURL string                 `json:"oAuthServiceUrl,omitempty"`
 	Synchronous     bool                   `json:"synchronous,omitempty"`
-	ScanType        string                 `json:"scanType,omitempty" validate:"possible-values=basicScan oDataScan swaggerScan fioriDASTScan aemscan oDataFuzzer burpscan"`
+	ScanType        string                 `json:"scanType,omitempty" validate:"possible-values=fioriDASTScan oDataFuzzer"`
 	Settings        map[string]interface{} `json:"settings,omitempty"`
 	DeleteScan      bool                   `json:"deleteScan,omitempty"`
 	ServiceURL      string                 `json:"serviceUrl,omitempty"`
