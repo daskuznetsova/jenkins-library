@@ -20,9 +20,23 @@ type Daster interface {
 	DeleteScan(scanId string) error
 }
 
+type httpClient interface {
+	sendHttpRequest(url, mode string, requestBody []byte) (*http.Response, error)
+}
+
+type httpClientInstance struct {
+	attempts int
+}
+
+func newHttpClient() *httpClientInstance {
+	return &httpClientInstance{
+		attempts: 0,
+	}
+}
+
 type Scan struct {
-	Results string
 	State   *ScanState
+	Results string
 	Summary interface{}
 }
 
@@ -34,7 +48,7 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-func callAPI(url, mode string, requestBody interface{}, verbose bool, maxRetries int) ([]byte, error) {
+func callAPI(httpClient httpClient, url, mode string, requestBody interface{}, verbose bool, maxRetries int) ([]byte, error) {
 	var requestBodyString []byte
 	var err error
 	if requestBody != nil {
@@ -51,7 +65,7 @@ func callAPI(url, mode string, requestBody interface{}, verbose bool, maxRetries
 	attempts := 0
 
 	for (response.StatusCode == 0 || IsInRetryCodes(response.StatusCode)) && attempts < maxRetries {
-		response, err = SendHTTPRequest(url, mode, requestBodyString)
+		response, err = httpClient.sendHttpRequest(url, mode, requestBodyString)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +92,7 @@ func callAPI(url, mode string, requestBody interface{}, verbose bool, maxRetries
 	return body, nil
 }
 
-func SendHTTPRequest(url, mode string, requestBody []byte) (*http.Response, error) {
+func (c *httpClientInstance) sendHttpRequest(url, mode string, requestBody []byte) (*http.Response, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(mode, url, bytes.NewBuffer(requestBody))
 	if err != nil {

@@ -9,13 +9,14 @@ import (
 var FioriDASTScanType = "fioriDASTScan"
 
 type FioriDASTScan struct {
+	client     httpClient
 	url        string
 	verbose    bool
 	maxRetries int
 }
 
 type NewFioriDASTScanResponse struct {
-	ScanId string `json:"scanId,omitempty"`
+	ScanId string `json:"scanId"`
 }
 
 type GetFioriDASTScanResponse struct {
@@ -30,14 +31,15 @@ type GetFioriDASTScanResponse struct {
 
 func NewFioriDASTScan(url string, verbose bool, maxRetires int) *FioriDASTScan {
 	return &FioriDASTScan{
-		url:        url,
 		verbose:    verbose,
 		maxRetries: maxRetires,
+		url:        fmt.Sprintf("%s/%s", url, FioriDASTScanType),
+		client:     newHttpClient(),
 	}
 }
 
 func (d *FioriDASTScan) TriggerScan(request map[string]interface{}) (string, error) {
-	resp, err := callAPI(fmt.Sprintf("%s/%s", d.url, FioriDASTScanType), http.MethodPost, request, d.verbose, d.maxRetries)
+	resp, err := callAPI(d.client, d.url, http.MethodPost, request, d.verbose, d.maxRetries)
 	if err != nil {
 		return "", err
 	}
@@ -51,7 +53,7 @@ func (d *FioriDASTScan) TriggerScan(request map[string]interface{}) (string, err
 }
 
 func (d *FioriDASTScan) GetScan(scanId string) (*Scan, error) {
-	resp, err := callAPI(fmt.Sprintf("%s/%s/%s", d.url, FioriDASTScanType, scanId), http.MethodGet, nil, d.verbose, d.maxRetries)
+	resp, err := callAPI(d.client, fmt.Sprintf("%s/%s", d.url, scanId), http.MethodGet, nil, d.verbose, d.maxRetries)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +72,7 @@ func (d *FioriDASTScan) GetScan(scanId string) (*Scan, error) {
 }
 
 func (d *FioriDASTScan) DeleteScan(scanId string) error {
-	_, err := callAPI(fmt.Sprintf("%s/%s/%s", d.url, FioriDASTScanType, scanId), http.MethodDelete, nil, d.verbose, d.maxRetries)
+	_, err := callAPI(d.client, fmt.Sprintf("%s/%s", d.url, scanId), http.MethodDelete, nil, d.verbose, d.maxRetries)
 	if err != nil {
 		return err
 	}

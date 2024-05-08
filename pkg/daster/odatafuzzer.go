@@ -9,6 +9,7 @@ import (
 var ODataFuzzerType = "oDataFuzzer"
 
 type ODataFuzzer struct {
+	client     httpClient
 	url        string
 	verbose    bool
 	maxRetries int
@@ -28,14 +29,15 @@ type GetODataFuzzerResponse struct {
 
 func NewODataFuzzer(url string, verbose bool, maxRetires int) *ODataFuzzer {
 	return &ODataFuzzer{
-		url:        url,
+		url:        fmt.Sprintf("%s/%s", url, ODataFuzzerType),
 		verbose:    verbose,
 		maxRetries: maxRetires,
+		client:     newHttpClient(),
 	}
 }
 
 func (d *ODataFuzzer) TriggerScan(request map[string]interface{}) (string, error) {
-	resp, err := callAPI(fmt.Sprintf("%s/%s", d.url, ODataFuzzerType), http.MethodPost, request, d.verbose, d.maxRetries)
+	resp, err := callAPI(d.client, d.url, http.MethodPost, request, d.verbose, d.maxRetries)
 	if err != nil {
 		return "", err
 	}
@@ -49,7 +51,7 @@ func (d *ODataFuzzer) TriggerScan(request map[string]interface{}) (string, error
 }
 
 func (d *ODataFuzzer) GetScan(scanId string) (*Scan, error) {
-	resp, err := callAPI(fmt.Sprintf("%s/%s/%s", d.url, ODataFuzzerType, scanId), http.MethodGet, nil, d.verbose, d.maxRetries)
+	resp, err := callAPI(d.client, fmt.Sprintf("%s/%s", d.url, scanId), http.MethodGet, nil, d.verbose, d.maxRetries)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +70,7 @@ func (d *ODataFuzzer) GetScan(scanId string) (*Scan, error) {
 }
 
 func (d *ODataFuzzer) DeleteScan(scanId string) error {
-	_, err := callAPI(fmt.Sprintf("%s/%s/%s", d.url, ODataFuzzerType, scanId), http.MethodDelete, nil, d.verbose, d.maxRetries)
+	_, err := callAPI(d.client, fmt.Sprintf("%s/%s", d.url, scanId), http.MethodDelete, nil, d.verbose, d.maxRetries)
 	if err != nil {
 		return err
 	}
