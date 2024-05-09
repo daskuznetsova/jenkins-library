@@ -5,7 +5,10 @@ import groovy.transform.Field
 
 void call(Map parameters = [:]) {
     List credentials = [
-    [type: 'usernamePassword', id: 'oAuthCredentialsId', env: ['PIPER_clientId', 'PIPER_clientSecret']]
+    [type: 'usernamePassword', id: 'oAuthCredentialsId', env: ['PIPER_clientId', 'PIPER_clientSecret']],
+    [type: 'token', id: 'dasterTokenCredentialsId', env: ['PIPER_dasterToken']],
+    [type: 'token', id: 'userCredentialsId', env: ['PIPER_user']],
+    [type: 'usernamePassword', id: 'targetAuthCredentialsId', env: ['PIPER_dasterTargetUser', 'PIPER_dasterTargetPassword']]
     ]
     piperExecuteBin(parameters, STEP_NAME, METADATA_FILE, credentials)
 }

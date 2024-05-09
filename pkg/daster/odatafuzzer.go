@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 var ODataFuzzerType = "oDataFuzzer"
@@ -29,7 +30,7 @@ type GetODataFuzzerResponse struct {
 
 func NewODataFuzzer(url string, verbose bool, maxRetires int) *ODataFuzzer {
 	return &ODataFuzzer{
-		url:        fmt.Sprintf("%s/%s", url, ODataFuzzerType),
+		url:        fmt.Sprintf("%s/%s", strings.TrimSuffix(url, "/"), ODataFuzzerType),
 		verbose:    verbose,
 		maxRetries: maxRetires,
 		client:     newHttpClient(),

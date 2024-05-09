@@ -56,13 +56,24 @@ func runDasterExecuteScan(config *dasterExecuteScanOptions, telemetryData *telem
 	default:
 		log.Entry().Errorf("scan type %s is currently unavailable", config.ScanType)
 	}
-
-	token, err := fetchOAuthToken(config)
-	if err != nil {
-		return err
+	if config.Settings == nil {
+		config.Settings = map[string]interface{}{}
 	}
 
-	config.Settings["dasterToken"] = token
+	if config.OAuthServiceURL != "" && config.ClientID != "" && config.ClientSecret != "" {
+		token, err := fetchOAuthToken(config)
+		if err != nil {
+			return err
+		}
+		config.Settings["parameterRules"] = token
+	}
+
+	if config.TargetURL != "" {
+		config.Settings["targetURL"] = config.TargetURL
+	}
+	if config.DasterToken != "" {
+		config.Settings["dasterToken"] = config.DasterToken
+	}
 	if config.UserCredentials != "" {
 		config.Settings["userCredentials"] = config.UserCredentials
 	}

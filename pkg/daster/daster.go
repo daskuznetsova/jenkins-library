@@ -86,7 +86,7 @@ func callAPI(httpClient httpClient, url, mode string, requestBody interface{}, v
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("API request failed with status code %d: %s", response.StatusCode, errResponse.Message)
+		return nil, fmt.Errorf("API request failed with status code %d %s", response.StatusCode, errResponse.Message)
 	}
 
 	return body, nil
@@ -102,6 +102,9 @@ func (c *httpClientInstance) sendHttpRequest(url, mode string, requestBody []byt
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
+	log.Entry().Infof("Sending request to url: %s", url)
+	log.Entry().Infof("HttpMethod: %s", mode)
+	log.Entry().Infof("Headers: %v", req.Header)
 	return client.Do(req)
 }
 

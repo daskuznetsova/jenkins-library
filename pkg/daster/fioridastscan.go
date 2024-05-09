@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 var FioriDASTScanType = "fioriDASTScan"
@@ -33,7 +34,7 @@ func NewFioriDASTScan(url string, verbose bool, maxRetires int) *FioriDASTScan {
 	return &FioriDASTScan{
 		verbose:    verbose,
 		maxRetries: maxRetires,
-		url:        fmt.Sprintf("%s/%s", url, FioriDASTScanType),
+		url:        fmt.Sprintf("%s/%s", strings.TrimSuffix(url, "/"), FioriDASTScanType),
 		client:     newHttpClient(),
 	}
 }
