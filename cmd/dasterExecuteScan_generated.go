@@ -151,7 +151,7 @@ func addDasterExecuteScanFlags(cmd *cobra.Command, stepConfig *dasterExecuteScan
 	cmd.Flags().StringVar(&stepConfig.User, "user", os.Getenv("PIPER_user"), "target user.")
 	cmd.Flags().StringVar(&stepConfig.Password, "password", os.Getenv("PIPER_password"), "target password.")
 	cmd.Flags().StringVar(&stepConfig.TargetURL, "targetUrl", os.Getenv("PIPER_targetUrl"), "target url.")
-	cmd.Flags().IntVar(&stepConfig.MaxRetries, "maxRetries", 0, "Number of retries to be attempted in case of HTTP connection instability.")
+	cmd.Flags().IntVar(&stepConfig.MaxRetries, "maxRetries", 15, "Number of retries to be attempted in case of HTTP connection instability.")
 	cmd.Flags().StringVar(&stepConfig.OAuthGrantType, "oAuthGrantType", os.Getenv("PIPER_oAuthGrantType"), "The grant type to use for fetching the token.")
 	cmd.Flags().StringVar(&stepConfig.OAuthSource, "oAuthSource", os.Getenv("PIPER_oAuthSource"), "The source used to fetch the token.")
 	cmd.Flags().StringVar(&stepConfig.OAuthServiceURL, "oAuthServiceUrl", os.Getenv("PIPER_oAuthServiceUrl"), "The URL to the XSUAA used for fetching the token.")
@@ -333,7 +333,7 @@ func dasterExecuteScanMetadata() config.StepData {
 						Type:        "int",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     0,
+						Default:     15,
 					},
 					{
 						Name:        "oAuthGrantType",

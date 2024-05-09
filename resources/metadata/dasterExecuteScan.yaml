@@ -146,6 +146,7 @@ spec:
           - PARAMETERS
           - STAGES
           - STEPS
+        default: 15
       - name: oAuthGrantType
         type: string
         description: The grant type to use for fetching the token.
