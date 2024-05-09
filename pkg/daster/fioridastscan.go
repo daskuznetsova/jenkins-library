@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/SAP/jenkins-library/pkg/log"
 )
 
 var FioriDASTScanType = "fioriDASTScan"
@@ -40,6 +42,7 @@ func NewFioriDASTScan(url string, verbose bool, maxRetires int) *FioriDASTScan {
 }
 
 func (d *FioriDASTScan) TriggerScan(request map[string]interface{}) (string, error) {
+	log.Entry().Debugf("TriggerScan start")
 	resp, err := callAPI(d.client, d.url, http.MethodPost, request, d.verbose, d.maxRetries)
 	if err != nil {
 		return "", err

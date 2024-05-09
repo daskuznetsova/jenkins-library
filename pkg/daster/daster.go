@@ -65,6 +65,7 @@ func callAPI(httpClient httpClient, url, mode string, requestBody interface{}, v
 	attempts := 0
 
 	for (response.StatusCode == 0 || IsInRetryCodes(response.StatusCode)) && attempts < maxRetries {
+		log.Entry().Debugf("before sending request")
 		response, err = httpClient.sendHttpRequest(url, mode, requestBodyString)
 		if err != nil {
 			return nil, err
