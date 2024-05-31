@@ -242,7 +242,7 @@ spec:
           - PARAMETERS
       - name: transformString
         type: string
-        description: "A transform string that will be applied to querySuite in `sed` command"
+        description: "A transform string that will be applied to the querySuite using the sed command."
         scope:
           - STEPS
           - STAGES

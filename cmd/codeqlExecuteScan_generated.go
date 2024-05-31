@@ -274,7 +274,7 @@ func addCodeqlExecuteScanFlags(cmd *cobra.Command, stepConfig *codeqlExecuteScan
 	cmd.Flags().StringVar(&stepConfig.DatabaseCreateFlags, "databaseCreateFlags", os.Getenv("PIPER_databaseCreateFlags"), "A space-separated string of flags for the 'codeql database create' command.")
 	cmd.Flags().StringVar(&stepConfig.DatabaseAnalyzeFlags, "databaseAnalyzeFlags", os.Getenv("PIPER_databaseAnalyzeFlags"), "A space-separated string of flags for the 'codeql database analyze' command.")
 	cmd.Flags().StringVar(&stepConfig.CustomCommand, "customCommand", os.Getenv("PIPER_customCommand"), "A custom user-defined command to run between codeql analysis and results upload.")
-	cmd.Flags().StringVar(&stepConfig.TransformString, "transformString", os.Getenv("PIPER_transformString"), "A transform string that will be applied to querySuite in `sed` command")
+	cmd.Flags().StringVar(&stepConfig.TransformString, "transformString", os.Getenv("PIPER_transformString"), "A transform string that will be applied to the querySuite using the sed command.")
 
 	cmd.MarkFlagRequired("buildTool")
 }
