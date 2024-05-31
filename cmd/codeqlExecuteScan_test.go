@@ -689,3 +689,54 @@ func TestCheckForCompliance(t *testing.T) {
 		assert.NoError(t, checkForCompliance(scanResults, config, repoInfo))
 	})
 }
+
+func TestExecute(t *testing.T) {
+	t.Parallel()
+
+	t.Run("execute without arguments", func(t *testing.T) {
+		utils := newCodeqlExecuteScanUtils()
+		cmd := "ls"
+		output, err := execute(utils, cmd, nil, false, false)
+		assert.NoError(t, err)
+		assert.Empty(t, output)
+	})
+
+	t.Run("execute with arguments without reading output", func(t *testing.T) {
+		utils := newCodeqlExecuteScanUtils()
+		cmd := "echo"
+		args := []string{"hello"}
+		output, err := execute(utils, cmd, args, false, false)
+		assert.NoError(t, err)
+		assert.Empty(t, output)
+	})
+
+	t.Run("execute with reading output", func(t *testing.T) {
+		utils := newCodeqlExecuteScanUtils()
+		cmd := "echo"
+		args := []string{"hello"}
+		output, err := execute(utils, cmd, args, false, true)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, output)
+		assert.Equal(t, "hello", output)
+	})
+
+	t.Run("error while execute", func(t *testing.T) {
+		utils := newCodeqlExecuteScanUtils()
+		cmd := "sh"
+		args := []string{"echo hello"}
+		output, err := execute(utils, cmd, args, false, false)
+		assert.Error(t, err)
+		assert.False(t, strings.Contains(err.Error(), "No such file or directory"))
+		assert.Empty(t, output)
+	})
+
+	t.Run("read error from output", func(t *testing.T) {
+		utils := newCodeqlExecuteScanUtils()
+		cmd := "sh"
+		args := []string{"echo hello"}
+		output, err := execute(utils, cmd, args, false, true)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "No such file or directory")
+		assert.Empty(t, output)
+	})
+}
