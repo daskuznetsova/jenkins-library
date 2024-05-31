@@ -59,20 +59,20 @@ func codeqlExecuteScan(config codeqlExecuteScanOptions, telemetryData *telemetry
 	influx.step_data.fields.codeql = true
 }
 
-func appendCodeqlQuery(cmd []string, codeqlQuery string) []string {
-	if len(codeqlQuery) > 0 {
-		cmd = append(cmd, codeqlQuery)
+func appendCodeqlQuery(utils codeqlExecuteScanUtils, cmd []string, querySuite, transformString string) []string {
+	if len(querySuite) > 0 {
+		if len(transformString) > 0 {
+			transformCmd := []string{fmt.Sprintf("echo %s | sed %s", querySuite, transformString)}
+			var err error
+			querySuite, err = execute(utils, "sh", transformCmd, false, true)
+			if err != nil {
+				log.Entry().WithError(err).Error("failed to transform querySuite")
+			}
+		}
+		cmd = append(cmd, querySuite)
 	}
 
 	return cmd
-}
-
-func execute(utils codeqlExecuteScanUtils, cmd []string, isVerbose bool) error {
-	if isVerbose {
-		cmd = append(cmd, "-v")
-	}
-
-	return utils.RunExecutable("codeql", cmd...)
 }
 
 func getLangFromBuildTool(buildTool string) string {
@@ -227,7 +227,7 @@ func runDatabaseCreate(config *codeqlExecuteScanOptions, customFlags map[string]
 		log.Entry().Error("failed to prepare command for codeql database create")
 		return err
 	}
-	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
+	if _, err = execute(utils, "codeql", cmd, GeneralConfig.Verbose, false); err != nil {
 		log.Entry().Error("failed running command codeql database create")
 		return err
 	}
@@ -246,37 +246,57 @@ func runDatabaseAnalyze(config *codeqlExecuteScanOptions, customFlags map[string
 	return append(sarifReport, csvReport...), nil
 }
 
-func runGithubUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, token string, utils codeqlExecuteScanUtils) (string, error) {
-	cmd := prepareCmdForUploadResults(config, repoInfo, token)
-
+func execute(utils codeqlExecuteScanUtils, cmd string, args []string, verbose, readOutput bool) (string, error) {
 	var bufferOut, bufferErr bytes.Buffer
-	utils.Stdout(&bufferOut)
-	defer utils.Stdout(log.Writer())
-	utils.Stderr(&bufferErr)
-	defer utils.Stderr(log.Writer())
+	var output string
 
-	if err := execute(utils, cmd, GeneralConfig.Verbose); err != nil {
-		e := bufferErr.String()
-		log.Entry().Error(e)
-		if strings.Contains(e, "Unauthorized") {
-			log.Entry().Error("Either your Github Token is invalid or you use both Vault and Jenkins credentials where your Vault credentials are invalid, to use your Jenkins credentials try setting 'skipVault:true'")
+	if readOutput {
+		utils.Stdout(&bufferOut)
+		defer utils.Stdout(log.Writer())
+		utils.Stderr(&bufferErr)
+		defer utils.Stderr(log.Writer())
+	}
+	if verbose {
+		args = append(args, "-v")
+	}
+
+	err := utils.RunExecutable(cmd, args...)
+	if err != nil {
+		if readOutput {
+			err = fmt.Errorf("%v. %s", err, bufferErr.String())
 		}
 		return "", err
 	}
 
-	url := strings.TrimSpace(bufferOut.String())
+	if readOutput {
+		output = strings.TrimSpace(bufferOut.String())
+	}
+	return output, nil
+}
+
+func runGithubUploadResults(config *codeqlExecuteScanOptions, repoInfo *codeql.RepoInfo, token string, utils codeqlExecuteScanUtils) (string, error) {
+	cmd := prepareCmdForUploadResults(config, repoInfo, token)
+
+	url, err := execute(utils, "codeql", cmd, GeneralConfig.Verbose, true)
+	if err != nil {
+		log.Entry().Error(err)
+		if strings.Contains(err.Error(), "Unauthorized") {
+			log.Entry().Error("Either your Github Token is invalid or you use both Vault and Jenkins credentials where your Vault credentials are invalid, to use your Jenkins credentials try setting 'skipVault:true'")
+		}
+		return "", err
+	}
 	return url, nil
 }
 
 func executeAnalysis(format, reportName string, customFlags map[string]string, config *codeqlExecuteScanOptions, utils codeqlExecuteScanUtils) ([]piperutils.Path, error) {
 	moduleTargetPath := filepath.Join(config.ModulePath, "target")
 	report := filepath.Join(moduleTargetPath, reportName)
-	cmd, err := prepareCmdForDatabaseAnalyze(customFlags, config, format, report)
+	cmd, err := prepareCmdForDatabaseAnalyze(customFlags, utils, config, format, report)
 	if err != nil {
 		log.Entry().Errorf("failed to prepare command for codeql database analyze (format=%s)", format)
 		return nil, err
 	}
-	if err = execute(utils, cmd, GeneralConfig.Verbose); err != nil {
+	if _, err = execute(utils, "codeql", cmd, GeneralConfig.Verbose, false); err != nil {
 		log.Entry().Errorf("failed running command codeql database analyze for %s generation", format)
 		return nil, err
 	}
@@ -323,11 +343,11 @@ func prepareCmdForDatabaseCreate(customFlags map[string]string, config *codeqlEx
 	return cmd, nil
 }
 
-func prepareCmdForDatabaseAnalyze(customFlags map[string]string, config *codeqlExecuteScanOptions, format, reportName string) ([]string, error) {
+func prepareCmdForDatabaseAnalyze(customFlags map[string]string, utils codeqlExecuteScanUtils, config *codeqlExecuteScanOptions, format, reportName string) ([]string, error) {
 	cmd := []string{"database", "analyze", "--format=" + format, "--output=" + reportName, config.Database}
 	cmd = codeql.AppendThreadsAndRam(cmd, config.Threads, config.Ram, customFlags)
 	cmd = codeql.AppendCustomFlags(cmd, customFlags)
-	cmd = appendCodeqlQuery(cmd, config.QuerySuite)
+	cmd = appendCodeqlQuery(utils, cmd, config.QuerySuite, config.TransformString)
 	return cmd, nil
 }
 
@@ -411,7 +431,7 @@ func runCustomCommand(utils codeqlExecuteScanUtils, command string) error {
 	}
 	log.Entry().Infof("Parsed command '%s' with %d arguments: ['%s']", cmd[0], len(cmd[1:]), strings.Join(cmd[1:], "', '"))
 
-	err = utils.RunExecutable(cmd[0], cmd[1:]...)
+	_, err = execute(utils, cmd[0], cmd[1:], false, false)
 	if err != nil {
 		log.Entry().WithError(err).Errorf("failed to run command %s", command)
 		return err

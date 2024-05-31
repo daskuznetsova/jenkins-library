@@ -46,6 +46,7 @@ type codeqlExecuteScanOptions struct {
 	DatabaseCreateFlags         string `json:"databaseCreateFlags,omitempty"`
 	DatabaseAnalyzeFlags        string `json:"databaseAnalyzeFlags,omitempty"`
 	CustomCommand               string `json:"customCommand,omitempty"`
+	TransformString             string `json:"transformString,omitempty"`
 }
 
 type codeqlExecuteScanInflux struct {
@@ -273,6 +274,7 @@ func addCodeqlExecuteScanFlags(cmd *cobra.Command, stepConfig *codeqlExecuteScan
 	cmd.Flags().StringVar(&stepConfig.DatabaseCreateFlags, "databaseCreateFlags", os.Getenv("PIPER_databaseCreateFlags"), "A space-separated string of flags for the 'codeql database create' command.")
 	cmd.Flags().StringVar(&stepConfig.DatabaseAnalyzeFlags, "databaseAnalyzeFlags", os.Getenv("PIPER_databaseAnalyzeFlags"), "A space-separated string of flags for the 'codeql database analyze' command.")
 	cmd.Flags().StringVar(&stepConfig.CustomCommand, "customCommand", os.Getenv("PIPER_customCommand"), "A custom user-defined command to run between codeql analysis and results upload.")
+	cmd.Flags().StringVar(&stepConfig.TransformString, "transformString", `-E "s/^(cpp|csharp|go|java|javascript|python|ruby|swift)-(security-extended\.qls|security-and-quality\.qls)/sap-\1-\2/"`, "A transform string that will be applied to querySuite in `sed` command")
 
 	cmd.MarkFlagRequired("buildTool")
 }
@@ -537,6 +539,15 @@ func codeqlExecuteScanMetadata() config.StepData {
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
 						Default:     os.Getenv("PIPER_customCommand"),
+					},
+					{
+						Name:        "transformString",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"STEPS", "STAGES", "PARAMETERS"},
+						Type:        "string",
+						Mandatory:   false,
+						Aliases:     []config.Alias{},
+						Default:     `-E "s/^(cpp|csharp|go|java|javascript|python|ruby|swift)-(security-extended\.qls|security-and-quality\.qls)/sap-\1-\2/"`,
 					},
 				},
 			},

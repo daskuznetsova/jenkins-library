@@ -240,6 +240,14 @@ spec:
           - STEPS
           - STAGES
           - PARAMETERS
+      - name: transformString
+        type: string
+        description: "A transform string that will be applied to querySuite in `sed` command"
+        scope:
+          - STEPS
+          - STAGES
+          - PARAMETERS
+        default: -E "s/^(cpp|csharp|go|java|javascript|python|ruby|swift)-(security-extended\.qls|security-and-quality\.qls)/sap-\1-\2/"
   containers:
     - image: ""
   outputs:
