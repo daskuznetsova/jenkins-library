@@ -62,7 +62,7 @@ func codeqlExecuteScan(config codeqlExecuteScanOptions, telemetryData *telemetry
 func appendCodeqlQuery(utils codeqlExecuteScanUtils, cmd []string, querySuite, transformString string) []string {
 	if len(querySuite) > 0 {
 		if len(transformString) > 0 {
-			transformCmd := []string{"-c", fmt.Sprintf("echo %s | sed %s", querySuite, transformString)}
+			transformCmd := []string{"-c", fmt.Sprintf("echo %s | sed -E %s", querySuite, transformString)}
 			var err error
 			querySuite, err = execute(utils, "sh", transformCmd, false, true)
 			if err != nil {

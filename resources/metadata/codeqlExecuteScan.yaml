@@ -243,6 +243,7 @@ spec:
       - name: transformString
         type: string
         description: "A transform string that will be applied to the querySuite using the sed command."
+        default: s/^(cpp|csharp|go|java|javascript|python|ruby|swift)-(security-extended\.qls|security-and-quality\.qls)/sap-\1-\2/
         scope:
           - STEPS
           - STAGES
