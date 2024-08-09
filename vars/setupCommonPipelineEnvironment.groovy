@@ -265,6 +265,8 @@ private void setGitRefOnCommonPipelineEnvironment(script, String gitCommit, Stri
     }
 
     echo "gitBranch: '${gitBranch}'"
+    gitBranch = "refs/tags/rel/1.0.0"
+    echo "gitBranch: '${gitBranch}'"
 
     if(gitBranch.contains("/")){
         gitBranchSplit = gitBranch.split("/")
@@ -274,6 +276,11 @@ private void setGitRefOnCommonPipelineEnvironment(script, String gitCommit, Stri
     }
 
     if (!gitBranch.contains("PR")) {
+//         if (gitBranch.startsWith("refs/") ){
+//             script.commonPipelineEnvironment.setGitRef(gitBranch)
+//         } else {
+//             script.commonPipelineEnvironment.setGitRef("refs/heads/" + gitBranch)
+//         }
         script.commonPipelineEnvironment.setGitRef("refs/heads/" + gitBranch)
         script.commonPipelineEnvironment.setGitRemoteCommitId(gitCommit)
         return
