@@ -137,6 +137,7 @@ func printCodeqlImageVersion() {
 
 func runCodeqlExecuteScan(config *codeqlExecuteScanOptions, telemetryData *telemetry.CustomData, utils codeqlExecuteScanUtils, influx *codeqlExecuteScanInflux) ([]piperutils.Path, error) {
 	printCodeqlImageVersion()
+	log.Entry().Infof("analyzed ref: %s", config.AnalyzedRef)
 
 	var reports []piperutils.Path
 
