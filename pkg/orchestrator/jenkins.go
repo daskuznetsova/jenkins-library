@@ -245,9 +245,13 @@ func (j *jenkinsConfigProvider) Branch() string {
 // GitReference returns the git reference, only works with the git plugin enabled
 func (j *jenkinsConfigProvider) GitReference() string {
 	ref := getEnv("BRANCH_NAME", "n/a")
+	log.Entry().Infof("got ref name from orchestrator: %s", ref)
 	if ref == "n/a" {
 		return ref
-	} else if strings.Contains(ref, "PR") {
+	} else {
+		ref = "refs/tags/rel/1.0.0"
+	}
+	if strings.Contains(ref, "PR") {
 		return "refs/pull/" + strings.Split(ref, "-")[1] + "/head"
 	} else {
 		return "refs/heads/" + ref
