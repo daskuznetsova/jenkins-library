@@ -264,6 +264,8 @@ private void setGitRefOnCommonPipelineEnvironment(script, String gitCommit, Stri
         return
     }
 
+    echo "gitBranch: '${gitBranch}'"
+
     if(gitBranch.contains("/")){
         gitBranchSplit = gitBranch.split("/")
         if(gitBranchSplit[0] == "origin") {
