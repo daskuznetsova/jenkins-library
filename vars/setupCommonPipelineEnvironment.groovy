@@ -260,13 +260,14 @@ private void setGitUrlsOnCommonPipelineEnvironment(script, String gitUrl) {
 }
 
 private void setGitRefOnCommonPipelineEnvironment(script, String gitCommit, String gitBranch, def gitUtils) {
+    echo "gitBranch: '${gitBranch}'"
     if(!gitBranch){
         return
     }
 
     echo "gitBranch: '${gitBranch}'"
-    gitBranch = "refs/tags/rel/1.0.0"
-    echo "gitBranch: '${gitBranch}'"
+//     gitBranch = "refs/tags/rel/1.0.0"
+//     echo "gitBranch: '${gitBranch}'"
 
     if(gitBranch.contains("/")){
         gitBranchSplit = gitBranch.split("/")
