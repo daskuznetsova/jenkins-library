@@ -111,6 +111,7 @@ void call(Map parameters = [:]) {
         InfluxData.addField('pipeline_data', 'build_url', env.BUILD_URL)
 
         def scmInfo = parameters.scmInfo
+        echo "scmInfo: '${scmInfo}'"
         if (scmInfo) {
             setGitUrlsOnCommonPipelineEnvironment(script, scmInfo.GIT_URL)
             script.commonPipelineEnvironment.setGitCommitId(scmInfo.GIT_COMMIT)
